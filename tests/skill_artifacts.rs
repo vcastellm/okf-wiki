@@ -3,6 +3,7 @@ use std::{fs, process::Command};
 use tempfile::tempdir;
 
 const SKILL: &str = include_str!("../skills/okf-wiki/SKILL.md");
+const README: &str = include_str!("../README.md");
 const SPEC: &str = include_str!("../skills/okf-wiki/references/okf-spec.md");
 const TEMPLATE_GITIGNORE: &str = include_str!("../skills/okf-wiki/templates/.gitignore");
 
@@ -15,7 +16,6 @@ const BUNDLE_SCOPED_COMMANDS: &[&str] = &[
     "okf-wiki lint",
     "okf-wiki search",
     "okf-wiki status",
-    "okf-wiki dir",
 ];
 
 const WIRED_FILES: &[&str] = &[
@@ -40,7 +40,6 @@ fn skill_uses_the_distributed_cli() {
         "okf-wiki status",
         "okf-wiki index",
         "okf-wiki now",
-        "okf-wiki dir",
         "okf-wiki wire",
     ] {
         assert!(SKILL.contains(command), "missing command: {command}");
@@ -48,6 +47,7 @@ fn skill_uses_the_distributed_cli() {
 
     for (name, artifact) in [
         ("SKILL.md", SKILL),
+        ("README.md", README),
         ("references/okf-spec.md", SPEC),
         ("templates/.gitignore", TEMPLATE_GITIGNORE),
     ] {
@@ -57,6 +57,17 @@ fn skill_uses_the_distributed_cli() {
                 "obsolete command token in {name}: {obsolete}"
             );
         }
+    }
+}
+
+#[test]
+fn skill_artifacts_omit_dir_command_name_and_heading() {
+    for (name, artifact) in [("SKILL.md", SKILL), ("README.md", README)] {
+        assert!(
+            !artifact.contains("okf-wiki dir"),
+            "obsolete command token in {name}"
+        );
+        assert!(!artifact.contains("### DIR"), "obsolete heading in {name}");
     }
 }
 

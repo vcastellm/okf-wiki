@@ -3,11 +3,7 @@ use std::{collections::BTreeMap, fs, path::Path};
 use anyhow::Result;
 use serde::Serialize;
 
-use crate::{
-    bundle::load_bundle,
-    cli::{DirArgs, StatusArgs},
-    model::LIFECYCLE_STATUSES,
-};
+use crate::{bundle::load_bundle, cli::StatusArgs, model::LIFECYCLE_STATUSES};
 
 use super::support::require_bundle;
 
@@ -43,22 +39,6 @@ pub(crate) fn status(args: StatusArgs) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn directory(args: DirArgs) -> Result<()> {
-    let root = require_bundle(&args.location)?;
-    let entry = directory_entry(&root)?;
-    if args.json {
-        println!("{}", serde_json::to_string_pretty(&entry)?);
-    } else {
-        println!("{}", entry.path);
-        println!("  exists:    {}", entry.exists);
-        println!("  populated: {}", entry.populated);
-        println!("  pages:     {}", entry.pages);
-        println!("  raw files: {}", entry.raw_files);
-        println!();
-    }
-    Ok(())
-}
-
 #[derive(Serialize)]
 struct Status {
     root: String,
@@ -67,15 +47,6 @@ struct Status {
     statuses: BTreeMap<String, usize>,
     raw_files: usize,
     last_log: String,
-}
-
-#[derive(Serialize)]
-struct DirectoryEntry {
-    path: String,
-    exists: bool,
-    populated: bool,
-    pages: usize,
-    raw_files: usize,
 }
 
 fn bundle_status(root: &Path) -> Result<Status> {
@@ -105,22 +76,6 @@ fn bundle_status(root: &Path) -> Result<Status> {
         statuses,
         raw_files: raw_file_count(root),
         last_log: last_log_entry(root),
-    })
-}
-
-fn directory_entry(root: &Path) -> Result<DirectoryEntry> {
-    let concepts = load_bundle(root)?;
-    let pages = concepts
-        .iter()
-        .filter(|concept| !concept.is_reserved_file())
-        .count();
-    let raw_files = raw_file_count(root);
-    Ok(DirectoryEntry {
-        path: root.display().to_string(),
-        exists: root.is_dir(),
-        populated: pages > 0 || raw_files > 0,
-        pages,
-        raw_files,
     })
 }
 

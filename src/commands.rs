@@ -32,7 +32,6 @@ pub fn run(cli: Cli) -> Result<()> {
             println!("{}", now_iso());
             Ok(())
         }
-        Command::Dir(args) => overview::directory(args),
         Command::Wire(args) => wire::run(args),
     }
 }

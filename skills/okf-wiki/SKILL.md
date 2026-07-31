@@ -67,7 +67,6 @@ okf-wiki lint --bundle .
 okf-wiki search <query> --bundle .
 okf-wiki status --bundle .
 okf-wiki index .
-okf-wiki dir --bundle .
 okf-wiki now
 okf-wiki wire --agent <name>
 ```
@@ -195,15 +194,6 @@ okf-wiki archive <page> --bundle . --reversal-summary "Superseded by session-coo
 Sets `status: archived`, appends a `kind: reversal` timeline entry (if summary
 given), and preserves the full page history. Archived pages are excluded from
 `okf-wiki search <query> --bundle .` by default and exempt from orphan-link lint checks.
-
-
-### DIR
-
-Show the resolved current bundle directory and whether it is populated:
-
-```bash
-okf-wiki dir --bundle . [--json]
-```
 
 
 ### WIRE

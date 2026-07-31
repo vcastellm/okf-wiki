@@ -49,7 +49,6 @@ Subcommands:
 - `status --bundle <path>` reports bundle health.
 - `index <bundle>` rebuilds directory indexes.
 - `now` prints an ISO-8601 UTC timestamp.
-- `dir --bundle <path>` reports the resolved bundle directory.
 - `wire --agent <name>` adds idempotent guidance for Claude, Codex, Cursor, Copilot, or Windsurf.
 
 Bundle-scoped commands require `--bundle <path>`. Run them from the intended bundle root and pass

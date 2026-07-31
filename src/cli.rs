@@ -27,7 +27,6 @@ pub enum Command {
     Status(StatusArgs),
     Index(IndexArgs),
     Now,
-    Dir(DirArgs),
     Wire(WireArgs),
 }
 
@@ -173,14 +172,6 @@ pub struct IndexArgs {
     pub bundle_dir: PathBuf,
     #[arg(long)]
     pub dry_run: bool,
-}
-
-#[derive(Debug, Args)]
-pub struct DirArgs {
-    #[command(flatten)]
-    pub location: BundleArgs,
-    #[arg(long)]
-    pub json: bool,
 }
 
 #[derive(Debug, Args)]

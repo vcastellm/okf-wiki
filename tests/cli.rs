@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use okf_wiki::cli::Cli;
 use tempfile::tempdir;
 
@@ -19,7 +19,6 @@ fn parses_every_supported_subcommand() -> anyhow::Result<()> {
         &["okf-wiki", "status", "--bundle", "."],
         &["okf-wiki", "index", "."],
         &["okf-wiki", "now"],
-        &["okf-wiki", "dir", "--bundle", "."],
         &["okf-wiki", "wire", "--agent", "claude"],
     ];
 
@@ -61,23 +60,36 @@ fn bundle_scoped_commands_require_explicit_bundle() -> anyhow::Result<()> {
 }
 
 #[test]
-fn help_lists_the_full_command_surface() -> anyhow::Result<()> {
+fn dir_is_rejected_as_a_cli_subcommand() {
+    // Given: the removed dir subcommand.
+    let arguments = ["okf-wiki", "dir", "--bundle", "."];
+
+    // When: clap parses the removed command.
+    let parsed = Cli::try_parse_from(arguments);
+
+    // Then: parsing fails.
+    assert!(parsed.is_err());
+}
+
+#[test]
+fn help_lists_the_full_command_surface() {
     // Given: the compiled binary.
-    let executable = env!("CARGO_BIN_EXE_okf-wiki");
+    let command = Cli::command();
 
-    // When: users ask for its help text.
-    let output = Command::new(executable).arg("--help").output()?;
+    // When: clap exposes the top-level subcommands structurally.
+    let subcommands = command
+        .get_subcommands()
+        .map(|subcommand| subcommand.get_name().to_owned())
+        .collect::<Vec<_>>();
 
-    // Then: help succeeds and advertises the expected command surface.
-    let stdout = String::from_utf8(output.stdout)?;
-    assert!(output.status.success());
+    // Then: the supported command surface includes the expected commands and excludes dir.
     for command in [
         "init", "ingest", "update", "truth", "archive", "diff", "lint", "search", "status",
-        "index", "now", "dir", "wire",
+        "index", "now", "wire",
     ] {
-        assert!(stdout.contains(command));
+        assert!(subcommands.iter().any(|subcommand| subcommand == command));
     }
-    Ok(())
+    assert!(!subcommands.iter().any(|subcommand| subcommand == "dir"));
 }
 
 #[test]
