@@ -64,16 +64,16 @@ fn agent_name(agent: Agent) -> &'static str {
 fn block(agent: Agent) -> &'static str {
     match agent {
         Agent::Cursor => {
-            "---\ndescription: Persistent markdown knowledge base (OKF) for project memory\nglobs: **/*\nalwaysApply: false\n---\n\n<!-- BEGIN okf -->\nAlways consult `.llm-wiki/index.md` before answering questions about project architecture, design decisions, entities, or domain concepts.\n\nScripts: `okf-wiki search`, `okf-wiki ingest`, `okf-wiki update`, `okf-wiki diff`, `okf-wiki status`, `okf-wiki init`, `okf-wiki lint`, `okf-wiki index`\n<!-- END okf -->"
+            "---\ndescription: Persistent markdown knowledge base (OKF) for project memory\nglobs: **/*\nalwaysApply: false\n---\n\n<!-- BEGIN okf -->\nConsult bundle-root `index.md` before answering questions about project architecture, design decisions, entities, or domain concepts. Use `okf-wiki search --bundle .` to find the relevant pages.\n\nScripts: `okf-wiki search`, `okf-wiki ingest`, `okf-wiki update`, `okf-wiki diff`, `okf-wiki status`, `okf-wiki init`, `okf-wiki lint`, `okf-wiki index`\n<!-- END okf -->"
         }
         Agent::Copilot => {
-            "<!-- BEGIN okf -->\n## Project Memory (okf-wiki)\n\nThis project uses `okf-wiki` for persistent knowledge. Always check `.llm-wiki/index.md` first before answering questions about architecture, design decisions, entities, or domain concepts.\n<!-- END okf -->"
+            "<!-- BEGIN okf -->\n## Project Memory (okf-wiki)\n\nThis project uses `okf-wiki` for persistent knowledge. Always check bundle-root `index.md` first before answering questions about architecture, design decisions, entities, or domain concepts. Use `okf-wiki search --bundle .` for lookups.\n<!-- END okf -->"
         }
         Agent::Windsurf => {
-            "<!-- BEGIN okf -->\nBefore answering questions about project architecture, design decisions, entities, or domain concepts, consult `.llm-wiki/index.md` first. Follow index to subsection index to concept page. Cite paths. Never skip the wiki.\n<!-- END okf -->"
+            "<!-- BEGIN okf -->\nBefore answering questions about project architecture, design decisions, entities, or domain concepts, consult bundle-root `index.md` first. Follow index to subsection index to concept page. Use `okf-wiki search --bundle .` to locate answers. Cite paths. Never skip the wiki.\n<!-- END okf -->"
         }
         Agent::Claude | Agent::Codex => {
-            "<!-- BEGIN okf -->\n## Project Memory (okf-wiki)\n\nThis project uses `okf-wiki` for persistent knowledge. Consult `.llm-wiki/index.md` before answering questions about project architecture, design decisions, entities, or domain concepts. See skills/okf-wiki/SKILL.md for the full protocol.\n<!-- END okf -->"
+            "<!-- BEGIN okf -->\n## Project Memory (okf-wiki)\n\nThis project uses `okf-wiki` for persistent knowledge. Consult bundle-root `index.md` before answering questions about project architecture, design decisions, entities, or domain concepts. Use `okf-wiki search --bundle .` for lookups. See skills/okf-wiki/SKILL.md for the full protocol.\n<!-- END okf -->"
         }
         Agent::All => "",
     }

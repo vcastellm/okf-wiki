@@ -8,18 +8,18 @@ use tempfile::tempdir;
 fn parses_every_supported_subcommand() -> anyhow::Result<()> {
     // Given: one valid minimal invocation per supported command.
     let invocations: &[&[&str]] = &[
-        &["okf-wiki", "init", "/tmp/wiki"],
-        &["okf-wiki", "ingest", "source.txt"],
-        &["okf-wiki", "update", "notes/page.md"],
-        &["okf-wiki", "truth", "notes/page.md"],
-        &["okf-wiki", "archive", "notes/page.md"],
-        &["okf-wiki", "diff"],
-        &["okf-wiki", "lint", "/tmp/wiki"],
-        &["okf-wiki", "search", "authentication"],
-        &["okf-wiki", "status"],
-        &["okf-wiki", "index", "/tmp/wiki"],
+        &["okf-wiki", "init", "."],
+        &["okf-wiki", "ingest", "source.txt", "--bundle", "."],
+        &["okf-wiki", "update", "notes/page.md", "--bundle", "."],
+        &["okf-wiki", "truth", "notes/page.md", "--bundle", "."],
+        &["okf-wiki", "archive", "notes/page.md", "--bundle", "."],
+        &["okf-wiki", "diff", "--bundle", "."],
+        &["okf-wiki", "lint", "--bundle", "."],
+        &["okf-wiki", "search", "authentication", "--bundle", "."],
+        &["okf-wiki", "status", "--bundle", "."],
+        &["okf-wiki", "index", "."],
         &["okf-wiki", "now"],
-        &["okf-wiki", "dir"],
+        &["okf-wiki", "dir", "--bundle", "."],
         &["okf-wiki", "wire", "--agent", "claude"],
     ];
 
@@ -31,6 +31,32 @@ fn parses_every_supported_subcommand() -> anyhow::Result<()> {
 
     // Then: every command is accepted by the Rust CLI.
     assert_eq!(parsed?.len(), invocations.len());
+    Ok(())
+}
+
+#[test]
+fn bundle_scoped_commands_require_explicit_bundle() -> anyhow::Result<()> {
+    // Given: bundle-scoped commands without their required bundle option.
+    let invocations: &[&[&str]] = &[
+        &["okf-wiki", "ingest", "source.txt"],
+        &["okf-wiki", "update", "notes/page.md"],
+        &["okf-wiki", "truth", "notes/page.md"],
+        &["okf-wiki", "archive", "notes/page.md"],
+        &["okf-wiki", "diff"],
+        &["okf-wiki", "lint"],
+        &["okf-wiki", "search", "authentication"],
+        &["okf-wiki", "status"],
+        &["okf-wiki", "dir"],
+    ];
+
+    // When: clap parses each incomplete invocation.
+    let rejected = invocations
+        .iter()
+        .filter(|arguments| Cli::try_parse_from(**arguments).is_err())
+        .count();
+
+    // Then: every bundle-scoped command is rejected without --bundle.
+    assert_eq!(rejected, invocations.len());
     Ok(())
 }
 
@@ -51,6 +77,26 @@ fn help_lists_the_full_command_surface() -> anyhow::Result<()> {
     ] {
         assert!(stdout.contains(command));
     }
+    Ok(())
+}
+
+#[test]
+fn status_bundle_dot_uses_command_current_dir() -> anyhow::Result<()> {
+    // Given: an executable launched with a temporary directory as its current directory.
+    let bundle = tempdir()?;
+    let executable = env!("CARGO_BIN_EXE_okf-wiki");
+    let expected_root = bundle.path().canonicalize()?;
+
+    // When: status resolves the explicit relative bundle path.
+    let output = Command::new(executable)
+        .args(["status", "--bundle", "."])
+        .current_dir(bundle.path())
+        .output()?;
+
+    // Then: status reports the temporary current directory as its bundle root.
+    let stdout = String::from_utf8(output.stdout)?;
+    assert!(output.status.success());
+    assert!(stdout.contains(&format!("OKF status: {}", expected_root.display())));
     Ok(())
 }
 
