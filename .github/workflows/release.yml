@@ -29,7 +29,7 @@ jobs:
       REQUIRE_RELEASE_TAG: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_npm == true) }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -111,7 +111,7 @@ jobs:
       APPLE_SIGNING_CONFIGURED: ${{ matrix.apple && secrets.APPLE_SIGNING_IDENTITY != '' && secrets.APPLE_CERTIFICATE_BASE64 != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_NOTARY_KEY_BASE64 != '' && secrets.APPLE_NOTARY_KEY_ID != '' && secrets.APPLE_NOTARY_ISSUER_ID != '' }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
@@ -274,7 +274,7 @@ jobs:
       VERSION: ${{ needs.validate.outputs.version }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -342,7 +342,7 @@ jobs:
       id-token: write
     steps:
       - name: Check out package manifest
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node.js for npm
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
