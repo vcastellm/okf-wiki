@@ -2,6 +2,13 @@
 name = "okf-wiki"
 version = "0.1.0"
 edition = "2024"
+description = "LLM Wiki CLI in OKF format"
+license = "MIT"
+repository = "https://github.com/vcastellm/okf-wiki"
+homepage = "https://github.com/vcastellm/okf-wiki"
+readme = "README.md"
+keywords = ["cli", "knowledge-base", "llm", "markdown", "wiki"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 anyhow = "1.0"
@@ -15,3 +22,12 @@ walkdir = "2.5"
 [dev-dependencies]
 sha2 = "0.10"
 tempfile = "3.14"
+
+[package.metadata.binstall]
+pkg-url = "https://github.com/vcastellm/okf-wiki/releases/download/v{ version }/okf-wiki-{ version }-{ target }.tar.gz"
+bin-dir = "okf-wiki{ binary-ext }"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides."x86_64-pc-windows-msvc"]
+pkg-url = "https://github.com/vcastellm/okf-wiki/releases/download/v{ version }/okf-wiki-{ version }-{ target }.zip"
+pkg-fmt = "zip"

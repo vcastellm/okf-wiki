@@ -1,0 +1,66 @@
+{
+  "version": "0.1.0",
+  "targets": [
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "platform": "linux",
+      "architecture": "x64",
+      "environment": "gnu",
+      "package": "okf-wiki-linux-x64-gnu",
+      "archiveFormat": "tar.gz",
+      "binary": "okf-wiki"
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "platform": "linux",
+      "architecture": "arm64",
+      "environment": "gnu",
+      "package": "okf-wiki-linux-arm64-gnu",
+      "archiveFormat": "tar.gz",
+      "binary": "okf-wiki"
+    },
+    {
+      "target": "x86_64-unknown-linux-musl",
+      "platform": "linux",
+      "architecture": "x64",
+      "environment": "musl",
+      "package": "okf-wiki-linux-x64-musl",
+      "archiveFormat": "tar.gz",
+      "binary": "okf-wiki"
+    },
+    {
+      "target": "aarch64-unknown-linux-musl",
+      "platform": "linux",
+      "architecture": "arm64",
+      "environment": "musl",
+      "package": "okf-wiki-linux-arm64-musl",
+      "archiveFormat": "tar.gz",
+      "binary": "okf-wiki"
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "platform": "darwin",
+      "architecture": "x64",
+      "package": "okf-wiki-darwin-x64",
+      "archiveFormat": "tar.gz",
+      "binary": "okf-wiki"
+    },
+    {
+      "target": "aarch64-apple-darwin",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "package": "okf-wiki-darwin-arm64",
+      "archiveFormat": "tar.gz",
+      "binary": "okf-wiki"
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "platform": "win32",
+      "architecture": "x64",
+      "environment": "msvc",
+      "package": "okf-wiki-win32-x64-msvc",
+      "archiveFormat": "zip",
+      "binary": "okf-wiki.exe"
+    }
+  ]
+}

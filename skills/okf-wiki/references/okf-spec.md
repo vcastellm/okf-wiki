@@ -84,7 +84,7 @@ metadata:
 ---
 ```
 
-When in doubt, run `okf_lint.py --strict-frontmatter` which detects probable parser failures (e.g. empty lists that may indicate dropped nested content).
+When in doubt, run `okf-wiki lint --strict-frontmatter` which detects probable parser failures (e.g. empty lists that may indicate dropped nested content).
 
 ## Cross-links
 
@@ -103,10 +103,10 @@ Pages can carry an optional `status` field:
 When a conclusion is overturned, **archive** the old page rather than deleting it.
 The `kind: reversal` timeline entry explains why the page was superseded.
 
-`okf_lint.py` treats archived pages as exempt from orphan-link checks (they are
+`okf-wiki lint` treats archived pages as exempt from orphan-link checks (they are
 historical), but their outbound links must still resolve.
 
-`okf_search.py` excludes archived pages by default. Use `--include-archived` to
+`okf-wiki search` excludes archived pages by default. Use `--include-archived` to
 surface them.
 
 
@@ -151,11 +151,11 @@ record why the page's content changed, not just that it changed.
 
 - Timeline is **append-only**. Existing entries are never edited or reordered.
 - Every meaningful rewrite of a page's body should append a `kind: decision` entry.
-- Use `okf update --kind <k> --summary "..." <page>` to append surgically.
-- Use `okf truth <page> < <new-body.md>` for atomic rewrite + provenance (reads
+- Use `okf-wiki update <page> --kind <k> --summary "..."` to append surgically.
+- Use `okf-wiki truth <page> < <new-body.md>` for atomic rewrite + provenance (reads
   new body from stdin, replaces the body section, and appends a `kind: decision`
   entry in one write).
-- Use `okf archive <page> --reversal-summary "..."` to archive with explanation.
+- Use `okf-wiki archive <page> --reversal-summary "..."` to archive with explanation.
 
 
 ## Reserved filenames
@@ -168,4 +168,4 @@ record why the page's content changed, not just that it changed.
 - `index.md`/`log.md` follow the reserved meaning.
 - `status` is valid (`active`, `draft`, `archived`) or absent.
 - Timeline entries (if present) have `time`, `kind`, and `summary` fields.
-- Frontmatter uses only the supported yamlish subset (run `okf_lint.py --strict-frontmatter` to verify).
+- Frontmatter uses only the supported yamlish subset (run `okf-wiki lint --strict-frontmatter` to verify).

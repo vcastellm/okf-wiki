@@ -4,7 +4,7 @@
 # !raw/
 
 # Generated indexes — these are auto-generated, but committing them
-# gives fast bootstrap without running okf_index.py on clone.
+# gives fast bootstrap without running `okf-wiki index` on clone.
 # If you prefer to regenerate on every fresh checkout, uncomment:
 # *.auto.md
 
