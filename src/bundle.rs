@@ -1,45 +1,26 @@
 use std::{
-    env, fs,
+    fs,
     path::{Component, Path, PathBuf},
 };
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use regex::Regex;
 use walkdir::WalkDir;
 
 use crate::{frontmatter::parse_frontmatter, model::Concept};
 
-pub fn resolve_bundles(tier: &str) -> Result<Vec<(String, PathBuf)>> {
-    let mut bundles = Vec::new();
-    if matches!(tier, "global" | "all")
-        && let Some(home) = env::var_os("HOME")
-    {
-        let global = PathBuf::from(home).join(".llm-wiki");
-        if global.is_dir() {
-            bundles.push(("global".to_owned(), global.canonicalize()?));
-        }
+pub fn resolve_bundle(path: &Path) -> Result<PathBuf> {
+    let root = path
+        .canonicalize()
+        .with_context(|| format!("bundle does not exist: {}", path.display()))?;
+    if !root.is_dir() {
+        bail!("bundle is not a directory: {}", path.display());
     }
-    if matches!(tier, "local" | "all") {
-        let local = env::current_dir()?.join(".llm-wiki");
-        if local.is_dir() {
-            bundles.push(("local".to_owned(), local.canonicalize()?));
-        }
-    }
-    Ok(bundles)
-}
-
-pub fn resolve_single_bundle(path: Option<&Path>, tier: &str) -> Result<Option<(String, PathBuf)>> {
-    match path {
-        Some(path) if path.is_dir() => Ok(Some((String::new(), path.canonicalize()?))),
-        Some(_) => Ok(None),
-        None => Ok(resolve_bundles(tier)?.into_iter().next()),
-    }
+    Ok(root)
 }
 
 pub fn load_bundle(root: &Path) -> Result<Vec<Concept>> {
-    let root = root
-        .canonicalize()
-        .with_context(|| format!("bundle does not exist: {}", root.display()))?;
+    let root = resolve_bundle(root)?;
     let mut paths = WalkDir::new(&root)
         .into_iter()
         .map(|entry| entry.map(|entry| entry.into_path()))

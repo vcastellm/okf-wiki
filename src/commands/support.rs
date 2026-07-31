@@ -7,16 +7,11 @@ use std::{
 use anyhow::{Context, Result, bail};
 
 use crate::{
-    bundle::resolve_single_bundle, cli::BundleArgs, frontmatter::atomic_write_text,
-    model::LintReport,
+    bundle::resolve_bundle, cli::BundleArgs, frontmatter::atomic_write_text, model::LintReport,
 };
 
 pub(crate) fn require_bundle(location: &BundleArgs) -> Result<PathBuf> {
-    let resolved = resolve_single_bundle(location.bundle.as_deref(), location.tier.as_str())?;
-    match resolved {
-        Some((_, root)) => Ok(root),
-        None => bail!("bundle not found (tier: {})", location.tier.as_str()),
-    }
+    resolve_bundle(&location.bundle)
 }
 
 pub(crate) fn resolve_page(root: &Path, page: &Path) -> Result<(PathBuf, String)> {

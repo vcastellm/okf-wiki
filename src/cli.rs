@@ -27,33 +27,13 @@ pub enum Command {
     Status(StatusArgs),
     Index(IndexArgs),
     Now,
-    Dir(DirArgs),
     Wire(WireArgs),
 }
 
 #[derive(Clone, Debug, Args)]
 pub struct BundleArgs {
     #[arg(long)]
-    pub bundle: Option<PathBuf>,
-    #[arg(long, value_enum, default_value_t = Tier::Local)]
-    pub tier: Tier,
-}
-
-#[derive(Clone, Copy, Debug, ValueEnum)]
-pub enum Tier {
-    Local,
-    Global,
-    All,
-}
-
-impl Tier {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Local => "local",
-            Self::Global => "global",
-            Self::All => "all",
-        }
-    }
+    pub bundle: PathBuf,
 }
 
 #[derive(Debug, Args)]
@@ -154,7 +134,6 @@ pub struct DiffArgs {
 
 #[derive(Debug, Args)]
 pub struct LintArgs {
-    pub bundle_dir: Option<PathBuf>,
     #[command(flatten)]
     pub location: BundleArgs,
     #[arg(long)]
@@ -193,16 +172,6 @@ pub struct IndexArgs {
     pub bundle_dir: PathBuf,
     #[arg(long)]
     pub dry_run: bool,
-}
-
-#[derive(Debug, Args)]
-pub struct DirArgs {
-    #[arg(long)]
-    pub bundle: Option<PathBuf>,
-    #[arg(long, value_enum, default_value_t = Tier::All)]
-    pub tier: Tier,
-    #[arg(long)]
-    pub json: bool,
 }
 
 #[derive(Debug, Args)]
