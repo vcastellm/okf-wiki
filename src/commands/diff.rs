@@ -17,11 +17,11 @@ pub(crate) fn run(args: DiffArgs) -> Result<()> {
         .map(|page| resolve_page(&root, page).map(|(_, relative)| relative))
         .transpose()?;
     let output = if let Some(since) = args.since.as_deref() {
-        git_output(&root, ["diff", since], page.as_deref())?
+        git_output(&root, ["diff", since], page.as_deref())?.into()
     } else if let Some(page) = page.as_deref() {
         page_history_diff(&root, page, args.previous)?
     } else {
-        git_output(&root, ["log", "-1", "-p"], None)?
+        git_output(&root, ["log", "-1", "-p"], None)?.into()
     };
     let stdout = String::from_utf8_lossy(&output.stdout);
     if stdout.trim().is_empty() {
@@ -36,11 +36,7 @@ pub(crate) fn run(args: DiffArgs) -> Result<()> {
     Ok(())
 }
 
-fn page_history_diff(
-    root: &std::path::Path,
-    page: &str,
-    previous: usize,
-) -> Result<std::process::Output> {
+fn page_history_diff(root: &std::path::Path, page: &str, previous: usize) -> Result<DiffOutput> {
     let log = git_output(
         root,
         ["log", &format!("-{previous}"), "--format=%H"],
@@ -52,15 +48,14 @@ fn page_history_diff(
         .filter(|line| !line.is_empty())
         .collect::<Vec<_>>();
     let Some(commit) = hashes.last() else {
-        println!("No git history for {page}");
-        return git_output(root, ["diff", "--no-index", "/dev/null", "/dev/null"], None);
+        return Ok(DiffOutput::empty());
     };
     let parent = git_output(root, ["rev-parse", &format!("{commit}^")], None)?;
     if parent.status.success() {
         let parent = String::from_utf8_lossy(&parent.stdout).trim().to_owned();
-        git_output(root, ["diff", &parent, commit], Some(page))
+        git_output(root, ["diff", &parent, commit], Some(page)).map(Into::into)
     } else {
-        git_output(root, ["show", commit], Some(page))
+        git_output(root, ["show", commit], Some(page)).map(Into::into)
     }
 }
 
@@ -75,4 +70,28 @@ fn git_output<const N: usize>(
         command.arg("--").arg(page);
     }
     command.output().context("could not run git")
+}
+
+#[derive(Debug)]
+struct DiffOutput {
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
+}
+
+impl DiffOutput {
+    const fn empty() -> Self {
+        Self {
+            stdout: Vec::new(),
+            stderr: Vec::new(),
+        }
+    }
+}
+
+impl From<std::process::Output> for DiffOutput {
+    fn from(output: std::process::Output) -> Self {
+        Self {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        }
+    }
 }

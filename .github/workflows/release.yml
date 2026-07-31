@@ -1,0 +1,383 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      publish_npm:
+        description: Publish the assembled npm packages after creating the GitHub release
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate version and release-tag policy
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    env:
+      REQUIRE_RELEASE_TAG: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_npm == true) }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - name: Validate version metadata and required release tag
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          if [[ "$REQUIRE_RELEASE_TAG" == "true" ]]; then
+            node scripts/check-version-sync.js
+            if [[ "$GITHUB_REF_TYPE" != "tag" || "$GITHUB_REF_NAME" != "v$version" ]]; then
+              printf 'Publishing releases must run from tag v%s; received %s %s.\n' "$version" "$GITHUB_REF_TYPE" "$GITHUB_REF_NAME" >&2
+              exit 1
+            fi
+          else
+            GITHUB_REF_NAME= node scripts/check-version-sync.js
+          fi
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: validate
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            binary: okf-wiki
+            archive_format: tar.gz
+            runner: ubuntu-latest
+            cross: false
+            apple: false
+          - target: aarch64-unknown-linux-gnu
+            binary: okf-wiki
+            archive_format: tar.gz
+            runner: ubuntu-latest
+            cross: true
+            apple: false
+          - target: x86_64-unknown-linux-musl
+            binary: okf-wiki
+            archive_format: tar.gz
+            runner: ubuntu-latest
+            cross: true
+            apple: false
+          - target: aarch64-unknown-linux-musl
+            binary: okf-wiki
+            archive_format: tar.gz
+            runner: ubuntu-latest
+            cross: true
+            apple: false
+          - target: x86_64-apple-darwin
+            binary: okf-wiki
+            archive_format: tar.gz
+            runner: macos-15-intel
+            cross: false
+            apple: true
+          - target: aarch64-apple-darwin
+            binary: okf-wiki
+            archive_format: tar.gz
+            runner: macos-14
+            cross: false
+            apple: true
+          - target: x86_64-pc-windows-msvc
+            binary: okf-wiki.exe
+            archive_format: zip
+            runner: windows-latest
+            cross: false
+            apple: false
+    env:
+      VERSION: ${{ needs.validate.outputs.version }}
+      TARGET: ${{ matrix.target }}
+      BINARY: ${{ matrix.binary }}
+      USES_CROSS: ${{ matrix.cross }}
+      APPLE_SIGNING_CONFIGURED: ${{ matrix.apple && secrets.APPLE_SIGNING_IDENTITY != '' && secrets.APPLE_CERTIFICATE_BASE64 != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_NOTARY_KEY_BASE64 != '' && secrets.APPLE_NOTARY_KEY_ID != '' && secrets.APPLE_NOTARY_ISSUER_ID != '' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross
+        if: matrix.cross
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2
+        with:
+          tool: cross
+
+      - name: Build release binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$USES_CROSS" == "true" ]]; then
+            cross build --locked --release --target "$TARGET"
+          else
+            cargo build --locked --release --target "$TARGET"
+          fi
+
+      - name: Stage native binary for distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_binary="target/$TARGET/release/$BINARY"
+          test -f "$source_binary"
+          mkdir -p "release-staging/$TARGET"
+          cp "$source_binary" "release-staging/$TARGET/$BINARY"
+
+      # Optional macOS distribution credentials:
+      # APPLE_SIGNING_IDENTITY, APPLE_CERTIFICATE_BASE64, APPLE_CERTIFICATE_PASSWORD,
+      # APPLE_NOTARY_KEY_BASE64, APPLE_NOTARY_KEY_ID, and APPLE_NOTARY_ISSUER_ID.
+      - name: Sign macOS binary and await notarization acceptance
+        if: matrix.apple && env.APPLE_SIGNING_CONFIGURED == 'true'
+        shell: bash
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_NOTARY_KEY_BASE64: ${{ secrets.APPLE_NOTARY_KEY_BASE64 }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          keychain="$RUNNER_TEMP/okf-wiki-signing.keychain-db"
+          certificate="$RUNNER_TEMP/okf-wiki-certificate.p12"
+          notary_key="$RUNNER_TEMP/AuthKey_$APPLE_NOTARY_KEY_ID.p8"
+          notarization_submission="$RUNNER_TEMP/okf-wiki-notarization-submission.zip"
+          keychain_password="$(openssl rand -hex 32)"
+          cleanup() {
+            rm -f "$certificate" "$notary_key" "$notarization_submission"
+            if [[ -e "$keychain" ]]; then
+              security delete-keychain "$keychain" || true
+            fi
+          }
+          trap cleanup EXIT
+
+          printf '%s' "$APPLE_CERTIFICATE_BASE64" | base64 -D > "$certificate"
+          printf '%s' "$APPLE_NOTARY_KEY_BASE64" | base64 -D > "$notary_key"
+          chmod 600 "$notary_key"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$certificate" -k "$keychain" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -f pkcs12
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain"
+          codesign --force --keychain "$keychain" --options runtime --sign "$APPLE_SIGNING_IDENTITY" --timestamp "release-staging/$TARGET/$BINARY"
+
+          ditto -c -k --keepParent "release-staging/$TARGET/$BINARY" "$notarization_submission"
+          xcrun notarytool submit "$notarization_submission" --key "$notary_key" --key-id "$APPLE_NOTARY_KEY_ID" --issuer "$APPLE_NOTARY_ISSUER_ID" --wait
+
+      - name: Explain skipped macOS signing
+        if: matrix.apple && env.APPLE_SIGNING_CONFIGURED != 'true'
+        shell: bash
+        run: |
+          printf '%s\n' '::notice::Skipping optional macOS signing and notarization because the complete Apple credential set is unavailable.'
+
+      - name: Archive Unix binary
+        if: matrix.archive_format == 'tar.gz'
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="okf-wiki-$VERSION-$TARGET.tar.gz"
+          mkdir -p release-assets
+          tar -C "release-staging/$TARGET" -czf "release-assets/$archive" "$BINARY"
+
+      - name: Archive Windows binary
+        if: matrix.archive_format == 'zip'
+        shell: pwsh
+        run: |
+          $archive = "release-assets/okf-wiki-$env:VERSION-$env:TARGET.zip"
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+          Compress-Archive -LiteralPath "release-staging/$env:TARGET/$env:BINARY" -DestinationPath $archive -Force
+
+      - name: Upload release archive
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-assets-${{ matrix.target }}
+          path: release-assets/okf-wiki-${{ needs.validate.outputs.version }}-${{ matrix.target }}.${{ matrix.archive_format }}
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload staged binary for npm assembly
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: npm-binary-${{ matrix.target }}
+          path: release-staging/${{ matrix.target }}/${{ matrix.binary }}
+          if-no-files-found: error
+          retention-days: 7
+
+  create-release:
+    name: Create GitHub release
+    needs:
+      - validate
+      - build
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_npm == true)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.validate.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Download release archives
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: release-assets-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Generate archive checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd release-assets
+            sha256sum okf-wiki-* > SHA256SUMS
+          )
+
+      - name: Create or update GitHub release
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="v$VERSION"
+          if gh release view "$tag" --json tagName; then
+            gh release upload "$tag" release-assets/* --clobber
+          else
+            gh release create "$tag" --verify-tag --title "$tag" --generate-notes release-assets/*
+          fi
+
+  assemble-npm:
+    name: Assemble npm packages
+    needs:
+      - validate
+      - build
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.validate.outputs.version }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - name: Download staged native binaries
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: npm-binary-*
+          path: downloaded-npm-binaries
+
+      - name: Restore assembler input layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const { targets } = require('./npm/platforms.json');
+
+          for (const { target, binary } of targets) {
+            const source = path.join('downloaded-npm-binaries', `npm-binary-${target}`, binary);
+            const destination = path.join('target', 'npm-binaries', target, binary);
+            fs.mkdirSync(path.dirname(destination), { recursive: true });
+            fs.copyFileSync(source, destination);
+          }
+          NODE
+
+      - name: Assemble all npm packages
+        run: node scripts/assemble-npm-packages.js --version "$VERSION" --bin-dir target/npm-binaries --out-dir dist
+
+      - name: Dry-run every assembled npm package
+        shell: bash
+        run: |
+          set -euo pipefail
+          for package_dir in dist/*; do
+            (
+              cd "$package_dir"
+              npm pack --dry-run
+            )
+          done
+
+      - name: Archive assembled npm packages
+        shell: bash
+        run: tar -C dist -czf npm-packages.tar.gz .
+
+      - name: Upload assembled npm packages
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: assembled-npm-packages
+          path: npm-packages.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-npm:
+    name: Publish npm packages
+    needs:
+      - create-release
+      - assemble-npm
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_npm == true)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out package manifest
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node.js for npm
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Download assembled npm packages
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: assembled-npm-packages
+          path: .
+
+      - name: Publish platform packages before the root package
+        shell: bash
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$NPM_TOKEN" ]]; then
+            printf '%s\n' 'NPM_TOKEN is required to publish npm packages.' >&2
+            exit 1
+          fi
+          export NODE_AUTH_TOKEN="$NPM_TOKEN"
+          mkdir published-npm
+          tar -xzf npm-packages.tar.gz -C published-npm
+          mapfile -t platform_packages < <(node -e 'for (const target of require("./npm/platforms.json").targets) console.log(target.package)')
+          for package_name in "${platform_packages[@]}"; do
+            test -d "published-npm/$package_name"
+            (
+              cd "published-npm/$package_name"
+              npm publish --provenance --access public
+            )
+          done
+          (
+            cd published-npm/okf-wiki
+            npm publish --provenance --access public
+          )

@@ -1,0 +1,38 @@
+{
+  "name": "okf-wiki",
+  "version": "0.1.0",
+  "description": "LLM Wiki CLI in OKF format",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vcastellm/okf-wiki.git"
+  },
+  "homepage": "https://github.com/vcastellm/okf-wiki#readme",
+  "bugs": {
+    "url": "https://github.com/vcastellm/okf-wiki/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "bin/okf-wiki.js",
+    "npm/platforms.json",
+    "README.md"
+  ],
+  "bin": {
+    "okf-wiki": "bin/okf-wiki.js"
+  },
+  "optionalDependencies": {
+    "okf-wiki-linux-x64-gnu": "0.1.0",
+    "okf-wiki-linux-arm64-gnu": "0.1.0",
+    "okf-wiki-linux-x64-musl": "0.1.0",
+    "okf-wiki-linux-arm64-musl": "0.1.0",
+    "okf-wiki-darwin-x64": "0.1.0",
+    "okf-wiki-darwin-arm64": "0.1.0",
+    "okf-wiki-win32-x64-msvc": "0.1.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
