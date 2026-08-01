@@ -15,10 +15,10 @@ Install the skill for a supported coding agent:
 npx skills add vcastellm/okf-wiki
 ```
 
-Run the CLI without a permanent installation:
+Run the CLI without a permanent installation from the directory that should become the bundle root:
 
 ```bash
-npx okf-wiki init .llm-wiki
+npx okf-wiki init .
 ```
 
 Until a crates.io release is published, install the CLI directly from the repository:
@@ -44,18 +44,21 @@ okf-wiki <subcommand> [flags]
 Subcommands:
 
 - `init <bundle>` scaffolds a new OKF wiki bundle.
-- `ingest <source>` copies a raw source and creates a source page.
-- `update <page>` updates timestamps, logs changes, and can append timeline entries.
-- `truth <page>` rewrites a page body from standard input with provenance.
-- `archive <page>` archives a page and can record a reversal.
-- `diff [page]` shows git-backed bundle diffs.
-- `lint [bundle]` validates OKF frontmatter, links, sources, timelines, and duplicates.
-- `search <query>` performs ranked search or a table-of-contents listing.
-- `status` reports bundle health.
+- `ingest <source> --bundle <path>` copies a raw source and creates a source page.
+- `update <page> --bundle <path>` updates timestamps, logs changes, and can append timeline entries.
+- `truth <page> --bundle <path>` rewrites a page body from standard input with provenance.
+- `archive <page> --bundle <path>` archives a page and can record a reversal.
+- `diff [page] --bundle <path>` shows git-backed bundle diffs.
+- `lint --bundle <path>` validates OKF frontmatter, links, sources, timelines, and duplicates.
+- `search <query> --bundle <path>` performs ranked search or a table-of-contents listing.
+- `status --bundle <path>` reports bundle health.
 - `index <bundle>` rebuilds directory indexes.
 - `now` prints an ISO-8601 UTC timestamp.
-- `dir` resolves local and global bundle directories.
 - `wire --agent <name>` adds idempotent guidance for Claude, Codex, Cursor, Copilot, or Windsurf.
+
+Bundle-scoped commands require `--bundle <path>`. Run them from the intended bundle root and pass
+`--bundle .`, for example `okf-wiki status --bundle .`. Relative bundle paths are resolved against
+the command's current working directory.
 
 Run `okf-wiki --help` or `okf-wiki <subcommand> --help` for complete flags.
 
