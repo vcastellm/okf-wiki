@@ -4,6 +4,7 @@ use anyhow::{Context, Result, bail};
 
 use crate::{
     cli::IngestArgs,
+    config::WikiConfig,
     frontmatter::{atomic_write_text, now_iso, slugify},
     indexer::rebuild_indexes,
     lint::{LintOptions, lint_bundle},
@@ -13,6 +14,7 @@ use super::support::{add_and_commit, prepend_log, print_lint, require_bundle};
 
 pub(crate) fn run(args: IngestArgs) -> Result<()> {
     let root = require_bundle(&args.location)?;
+    let config = WikiConfig::load(&root)?;
     let source = args
         .source
         .canonicalize()
@@ -26,9 +28,15 @@ pub(crate) fn run(args: IngestArgs) -> Result<()> {
         .file_name()
         .and_then(|name| name.to_str())
         .context("source file has no UTF-8 name")?;
-    let raw_relative = format!("raw/{source_name}");
+    let raw_folder = config
+        .folders()
+        .raw()
+        .first()
+        .context("config raw folders must contain at least one folder")?;
+    let raw_relative = format!("{}/{source_name}", raw_folder.as_str());
     let raw_destination = root.join(&raw_relative);
-    let page = root.join("sources").join(format!("{slug}.md"));
+    let page_relative = format!("{}/{}.md", config.folders().sources().as_str(), slug);
+    let page = root.join(&page_relative);
     if args.dry_run {
         println!(
             "[dry-run] copy {} → {}",
@@ -40,8 +48,8 @@ pub(crate) fn run(args: IngestArgs) -> Result<()> {
         println!("[dry-run] slug: {slug}");
         return Ok(());
     }
-    fs::create_dir_all(root.join("raw"))?;
-    fs::create_dir_all(root.join("sources"))?;
+    fs::create_dir_all(root.join(raw_folder.as_str()))?;
+    fs::create_dir_all(root.join(config.folders().sources().as_str()))?;
     fs::copy(&source, &raw_destination)
         .with_context(|| format!("could not copy {}", source.display()))?;
     let timestamp = now_iso();
@@ -52,7 +60,7 @@ pub(crate) fn run(args: IngestArgs) -> Result<()> {
         ),
     )?;
     println!("Copied  {}  →  {raw_relative}", source.display());
-    println!("Created sources/{slug}.md");
+    println!("Created {page_relative}");
     prepend_log(
         &root,
         &timestamp,
@@ -69,7 +77,7 @@ pub(crate) fn run(args: IngestArgs) -> Result<()> {
         }
     }
     add_and_commit(&root, &format!("ingest: {slug}"), !args.no_commit)?;
-    println!("\nDone. Source: {raw_relative}  Page: sources/{slug}.md");
+    println!("\nDone. Source: {raw_relative}  Page: {page_relative}");
     Ok(())
 }
 

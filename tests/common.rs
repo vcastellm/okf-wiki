@@ -60,6 +60,44 @@ fn loads_only_visible_concepts_and_normalizes_relative_links() -> anyhow::Result
 }
 
 #[test]
+fn excludes_configured_raw_folders_from_loading_and_search() -> anyhow::Result<()> {
+    // Given: a bundle with two configured raw roots and a custom managed page folder.
+    let bundle = tempdir()?;
+    fs::write(
+        bundle.path().join("okf-wiki.toml"),
+        "[folders]\nraw = [\"incoming\", \"research\"]\nnotes = \"pages\"\n",
+    )?;
+    fs::create_dir_all(bundle.path().join("incoming"))?;
+    fs::create_dir_all(bundle.path().join("research"))?;
+    fs::create_dir_all(bundle.path().join("pages"))?;
+    fs::write(
+        bundle.path().join("incoming/raw-one.md"),
+        "---\ntype: Note\ntitle: Raw One\n---\n\nUniqueRawOne\n",
+    )?;
+    fs::write(
+        bundle.path().join("research/raw-two.md"),
+        "---\ntype: Note\ntitle: Raw Two\n---\n\nUniqueRawTwo\n",
+    )?;
+    fs::write(
+        bundle.path().join("pages/kept.md"),
+        "---\ntype: Note\ntitle: Managed Page\n---\n\nUniqueManaged\n",
+    )?;
+
+    // When: the shared read-side bundle and search APIs inspect the bundle.
+    let concepts = load_bundle(bundle.path())?;
+    let raw_results = search_bundle(bundle.path(), "UniqueRawOne UniqueRawTwo", 10, false)?;
+    let managed_results = search_bundle(bundle.path(), "UniqueManaged", 10, false)?;
+
+    // Then: both raw roots are excluded while the configured managed folder is loaded.
+    assert_eq!(concepts.len(), 1);
+    assert_eq!(concepts[0].rel, "/pages/kept.md");
+    assert!(raw_results.is_empty());
+    assert_eq!(managed_results.len(), 1);
+    assert_eq!(managed_results[0].rel, "/pages/kept.md");
+    Ok(())
+}
+
+#[test]
 fn ranks_title_matches_above_body_only_matches() -> anyhow::Result<()> {
     // Given: a pair of searchable pages with different field matches.
     let bundle = tempdir()?;

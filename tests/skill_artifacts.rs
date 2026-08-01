@@ -7,6 +7,16 @@ const README: &str = include_str!("../README.md");
 const SPEC: &str = include_str!("../skills/okf-wiki/references/okf-spec.md");
 const TEMPLATE_GITIGNORE: &str = include_str!("../skills/okf-wiki/templates/.gitignore");
 
+const SPEC_FOLDER_CONFIG_TOKENS: &[&str] = &[
+    "[folders]",
+    "raw =",
+    "sources =",
+    "notes =",
+    "entities =",
+    "concepts =",
+    "okf-wiki.toml",
+];
+
 const BUNDLE_SCOPED_COMMANDS: &[&str] = &[
     "okf-wiki ingest",
     "okf-wiki update",
@@ -93,6 +103,28 @@ fn skill_artifacts_omit_obsolete_bundle_locations_and_tiers() {
             );
         }
     }
+}
+
+#[test]
+fn spec_documents_folder_config_schema() {
+    for token in SPEC_FOLDER_CONFIG_TOKENS {
+        assert!(
+            SPEC.contains(token),
+            "missing folder config token in okf-spec.md: {token}"
+        );
+    }
+}
+
+#[test]
+fn skill_references_folder_config_file() {
+    assert!(
+        SKILL.contains("okf-wiki.toml"),
+        "SKILL.md must reference okf-wiki.toml config file"
+    );
+    assert!(
+        SKILL.contains("[folders]"),
+        "SKILL.md must show the [folders] TOML section header"
+    );
 }
 
 #[test]

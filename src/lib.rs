@@ -1,6 +1,7 @@
 pub mod bundle;
 pub mod cli;
 pub mod commands;
+pub mod config;
 pub mod frontmatter;
 pub mod indexer;
 pub mod lint;

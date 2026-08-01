@@ -3,7 +3,12 @@ use std::{collections::BTreeMap, fs, path::Path};
 use anyhow::Result;
 use serde::Serialize;
 
-use crate::{bundle::load_bundle, cli::StatusArgs, model::LIFECYCLE_STATUSES};
+use crate::{
+    bundle::load_bundle_with_config,
+    cli::StatusArgs,
+    config::{FolderName, WikiConfig},
+    model::LIFECYCLE_STATUSES,
+};
 
 use super::support::require_bundle;
 
@@ -50,7 +55,8 @@ struct Status {
 }
 
 fn bundle_status(root: &Path) -> Result<Status> {
-    let concepts = load_bundle(root)?;
+    let config = WikiConfig::load(root)?;
+    let concepts = load_bundle_with_config(root, &config)?;
     let pages = concepts
         .iter()
         .filter(|concept| !concept.is_reserved_file())
@@ -74,13 +80,20 @@ fn bundle_status(root: &Path) -> Result<Status> {
         page_count: pages.len(),
         types,
         statuses,
-        raw_files: raw_file_count(root),
+        raw_files: raw_file_count(root, config.folders().raw()),
         last_log: last_log_entry(root),
     })
 }
 
-fn raw_file_count(root: &Path) -> usize {
-    fs::read_dir(root.join("raw"))
+fn raw_file_count(root: &Path, raw_folders: &[FolderName]) -> usize {
+    raw_folders
+        .iter()
+        .map(|folder| direct_visible_file_count(&root.join(folder.as_str())))
+        .sum()
+}
+
+fn direct_visible_file_count(directory: &Path) -> usize {
+    fs::read_dir(directory)
         .map(|entries| {
             entries
                 .filter_map(std::result::Result::ok)
