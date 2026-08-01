@@ -208,7 +208,7 @@ jobs:
           Compress-Archive -LiteralPath "release-staging/$env:TARGET/$env:BINARY" -DestinationPath $archive -Force
 
       - name: Upload release archive
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-assets-${{ matrix.target }}
           path: release-assets/okf-wiki-${{ needs.validate.outputs.version }}-${{ matrix.target }}.${{ matrix.archive_format }}
@@ -216,7 +216,7 @@ jobs:
           retention-days: 7
 
       - name: Upload staged binary for npm assembly
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: npm-binary-${{ matrix.target }}
           path: release-staging/${{ matrix.target }}/${{ matrix.binary }}
@@ -323,7 +323,7 @@ jobs:
         run: tar -C dist -czf npm-packages.tar.gz .
 
       - name: Upload assembled npm packages
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: assembled-npm-packages
           path: npm-packages.tar.gz
