@@ -17,15 +17,15 @@ function makeTempDir(label) {
   return fs.mkdtempSync(path.join(os.tmpdir(), `okf-wiki-${label}-`));
 }
 
-function writeInputBinaries(binDir, skipPackage) {
+function writeInputBinaries(binDir, skippedTarget) {
   for (const target of platforms.targets) {
-    if (target.package === skipPackage) {
+    if (target.target === skippedTarget) {
       continue;
     }
 
     const targetDir = path.join(binDir, target.target);
     fs.mkdirSync(targetDir, { recursive: true });
-    fs.writeFileSync(path.join(targetDir, target.binary), `native binary for ${target.package}\n`);
+    fs.writeFileSync(path.join(targetDir, target.binary), `native binary for ${target.target}\n`);
   }
 }
 
@@ -70,45 +70,18 @@ function expectedTree() {
     'okf-wiki/README.md',
     'okf-wiki/bin/',
     'okf-wiki/bin/okf-wiki.js',
+    'okf-wiki/bin/native/',
     'okf-wiki/npm/',
     'okf-wiki/npm/platforms.json',
     'okf-wiki/package.json',
     ...platforms.targets.flatMap((target) => [
-      `${target.package}/`,
-      `${target.package}/bin/`,
-      `${target.package}/bin/${target.binary}`,
-      `${target.package}/package.json`,
+      `okf-wiki/bin/native/${target.target}/`,
+      `okf-wiki/bin/native/${target.target}/${target.binary}`,
     ]),
   ].sort();
 }
 
-function expectedPlatformManifest(target) {
-  const manifest = {
-    name: target.package,
-    version: VERSION,
-    description: `Native okf-wiki binary for ${target.target}`,
-    license: 'MIT',
-    repository: {
-      type: 'git',
-      url: 'git+https://github.com/vcastellm/okf-wiki.git',
-    },
-    files: ['bin/'],
-    os: [target.platform],
-    cpu: [target.architecture],
-    publishConfig: {
-      access: 'public',
-      provenance: true,
-    },
-  };
-
-  if (target.platform === 'linux') {
-    manifest.libc = [target.environment === 'gnu' ? 'glibc' : 'musl'];
-  }
-
-  return manifest;
-}
-
-test('Given prebuilt native binaries When npm packages are assembled Then only deterministic package contents are emitted', () => {
+test('Given prebuilt native binaries When the npm package is assembled Then one package contains deterministic bundled native binaries', () => {
   const workspace = makeTempDir('assemble-packages');
   const binDir = path.join(workspace, 'prebuilt');
   const outDir = path.join(workspace, 'dist');
@@ -123,17 +96,12 @@ test('Given prebuilt native binaries When npm packages are assembled Then only d
   const rootManifest = readJson(path.join(outDir, 'okf-wiki', 'package.json'));
   assert.equal(rootManifest.name, 'okf-wiki');
   assert.equal(rootManifest.version, VERSION);
-  assert.deepEqual(rootManifest.files, ['bin/okf-wiki.js', 'npm/platforms.json', 'README.md', 'LICENSE']);
+  assert.deepEqual(rootManifest.files, ['bin/okf-wiki.js', 'bin/native/', 'npm/platforms.json', 'README.md', 'LICENSE']);
   assert.deepEqual(rootManifest.bin, { 'okf-wiki': 'bin/okf-wiki.js' });
-  assert.deepEqual(
-    rootManifest.optionalDependencies,
-    Object.fromEntries(platforms.targets.map((target) => [target.package, VERSION]))
-  );
+  assert.equal(rootManifest.optionalDependencies, undefined);
   assert.equal(rootManifest.scripts, undefined);
   assert.equal(rootManifest.dependencies, undefined);
   assert.equal(rootManifest.devDependencies, undefined);
-  assert.ok(!fs.existsSync(path.join(outDir, 'okf-wiki', 'bin', 'okf-wiki')));
-  assert.ok(!fs.existsSync(path.join(outDir, 'okf-wiki', 'bin', 'okf-wiki.exe')));
 
   assert.equal(
     fs.readFileSync(path.join(outDir, 'okf-wiki', 'bin', 'okf-wiki.js'), 'utf8'),
@@ -145,13 +113,11 @@ test('Given prebuilt native binaries When npm packages are assembled Then only d
   );
 
   for (const target of platforms.targets) {
-    const packageRoot = path.join(outDir, target.package);
-    const binaryPath = path.join(packageRoot, 'bin', target.binary);
-    assert.deepEqual(readJson(path.join(packageRoot, 'package.json')), expectedPlatformManifest(target));
-    assert.equal(fs.readFileSync(binaryPath, 'utf8'), `native binary for ${target.package}\n`);
+    const binaryPath = path.join(outDir, 'okf-wiki', 'bin', 'native', target.target, target.binary);
+    assert.equal(fs.readFileSync(binaryPath, 'utf8'), `native binary for ${target.target}\n`);
 
     if (target.platform !== 'win32') {
-      assert.notEqual(fs.statSync(binaryPath).mode & 0o111, 0, `${target.package} binary should be executable`);
+      assert.notEqual(fs.statSync(binaryPath).mode & 0o111, 0, `${target.target} binary should be executable`);
     } else {
       assert.ok(binaryPath.endsWith('okf-wiki.exe'));
     }
@@ -162,9 +128,9 @@ test('Given a missing native binary When npm packages are assembled Then the fai
   const workspace = makeTempDir('assemble-missing-binary');
   const binDir = path.join(workspace, 'prebuilt');
   const outDir = path.join(workspace, 'dist');
-  const missingTarget = platforms.targets.find((target) => target.package === 'okf-wiki-win32-x64-msvc');
+  const missingTarget = platforms.targets.find((target) => target.target === 'x86_64-pc-windows-msvc');
   assert.ok(missingTarget);
-  writeInputBinaries(binDir, missingTarget.package);
+  writeInputBinaries(binDir, missingTarget.target);
 
   const result = runAssembler(binDir, outDir);
 

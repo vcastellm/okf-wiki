@@ -64,14 +64,14 @@ Run `okf-wiki --help` or `okf-wiki <subcommand> --help` for complete flags.
 
 ## Distribution
 
-The npm package is a dependency-free JavaScript launcher. npm selects a native optional package for the current platform; installation does not run a postinstall downloader. Release automation builds:
+The single `okf-wiki` npm package contains a dependency-free JavaScript launcher and every supported native binary. The launcher selects its local binary at `bin/native/<Rust target>/okf-wiki` (or `.exe` on Windows); installation does not run a postinstall downloader or fetch binaries from the network. This avoids per-platform npm packages, at the cost of every npm installation downloading all supported binaries. Release automation builds:
 
 - Linux x64 and arm64 with glibc
 - Linux x64 and arm64 with musl
 - macOS x64 and arm64
 - Windows x64
 
-GitHub Releases are the source of truth for native archives and checksums. npm packages are assembled from those CI-built binaries and published with provenance. macOS binaries are signed and notarized when maintainer credentials are configured; release dry-runs do not require them.
+GitHub Releases are the source of truth for native archives and checksums. The bundled npm package is assembled from those CI-built binaries and published with provenance. macOS binaries are signed and notarized when maintainer credentials are configured; release dry-runs do not require them.
 
 The canonical Agent Skill is [`skills/okf-wiki/`](skills/okf-wiki/). It follows the portable `SKILL.md`, `references/`, and `templates/` layout rather than maintaining agent-specific copies.
 

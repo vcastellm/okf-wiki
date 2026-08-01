@@ -61,6 +61,9 @@ function validateVersionSync(rootDir = REPOSITORY_ROOT, environment = process.en
   if (npmVersion === undefined) {
     errors.push('package.json version is missing or is not a string.');
   }
+  if (packageJson && Object.prototype.hasOwnProperty.call(packageJson, 'optionalDependencies')) {
+    errors.push('package.json must not define optionalDependencies for the single-package npm distribution.');
+  }
 
   const platforms = readJsonFile(platformsPath, 'npm/platforms.json', errors);
   const platformsVersion = platforms && typeof platforms.version === 'string'
@@ -96,10 +99,8 @@ function validateVersionSync(rootDir = REPOSITORY_ROOT, environment = process.en
     errors.push('npm/platforms.json targets must be an array.');
   }
 
-  const platformPackages = [];
   if (targets !== undefined) {
     const seenTargets = new Set();
-    const seenPackages = new Set();
 
     targets.forEach((entry, index) => {
       if (!entry || typeof entry !== 'object') {
@@ -115,45 +116,11 @@ function validateVersionSync(rootDir = REPOSITORY_ROOT, environment = process.en
         seenTargets.add(entry.target);
       }
 
-      if (typeof entry.package !== 'string' || entry.package.length === 0) {
-        errors.push(`npm/platforms.json targets[${index}].package must be a non-empty string.`);
-      } else if (seenPackages.has(entry.package)) {
-        errors.push(`npm/platforms.json contains duplicate package ${entry.package}.`);
-      } else {
-        seenPackages.add(entry.package);
-        platformPackages.push(entry.package);
+      if (Object.prototype.hasOwnProperty.call(entry, 'package')) {
+        errors.push(`npm/platforms.json targets[${index}] must not define package for the single-package npm distribution.`);
       }
+
     });
-  }
-
-  const optionalDependencies = packageJson && packageJson.optionalDependencies;
-  if (!optionalDependencies || typeof optionalDependencies !== 'object' || Array.isArray(optionalDependencies)) {
-    errors.push('package.json optionalDependencies must be an object.');
-  } else {
-    const expectedPackages = new Set(platformPackages);
-    const actualPackages = new Set(Object.keys(optionalDependencies));
-    const missingPackages = platformPackages.filter((name) => !actualPackages.has(name));
-    const unexpectedPackages = Object.keys(optionalDependencies).filter((name) => !expectedPackages.has(name));
-
-    if (missingPackages.length > 0 || unexpectedPackages.length > 0) {
-      const details = [];
-      if (missingPackages.length > 0) {
-        details.push(`missing ${missingPackages.join(', ')}`);
-      }
-      if (unexpectedPackages.length > 0) {
-        details.push(`unexpected ${unexpectedPackages.join(', ')}`);
-      }
-      errors.push(`package.json optionalDependencies package set does not match npm/platforms.json targets (${details.join('; ')}).`);
-    }
-
-    const expectedVersion = npmVersion || canonicalVersion;
-    if (expectedVersion !== undefined) {
-      for (const [name, version] of Object.entries(optionalDependencies)) {
-        if (version !== expectedVersion) {
-          errors.push(`optionalDependency ${name} must use exact version ${expectedVersion}; received ${JSON.stringify(version)}.`);
-        }
-      }
-    }
   }
 
   const refName = environment && typeof environment.GITHUB_REF_NAME === 'string'

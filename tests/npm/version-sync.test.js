@@ -10,13 +10,13 @@ const { validateVersionSync } = require('../../scripts/check-version-sync.js');
 
 const VERSION = '0.1.0';
 const PLATFORM_TARGETS = [
-  ['x86_64-unknown-linux-gnu', 'okf-wiki-linux-x64-gnu'],
-  ['aarch64-unknown-linux-gnu', 'okf-wiki-linux-arm64-gnu'],
-  ['x86_64-unknown-linux-musl', 'okf-wiki-linux-x64-musl'],
-  ['aarch64-unknown-linux-musl', 'okf-wiki-linux-arm64-musl'],
-  ['x86_64-apple-darwin', 'okf-wiki-darwin-x64'],
-  ['aarch64-apple-darwin', 'okf-wiki-darwin-arm64'],
-  ['x86_64-pc-windows-msvc', 'okf-wiki-win32-x64-msvc'],
+  'x86_64-unknown-linux-gnu',
+  'aarch64-unknown-linux-gnu',
+  'x86_64-unknown-linux-musl',
+  'aarch64-unknown-linux-musl',
+  'x86_64-apple-darwin',
+  'aarch64-apple-darwin',
+  'x86_64-pc-windows-msvc',
 ];
 
 function createFixture(overrides = {}) {
@@ -24,24 +24,14 @@ function createFixture(overrides = {}) {
   const cargoVersion = overrides.cargoVersion || VERSION;
   const npmVersion = overrides.npmVersion || VERSION;
   const platformsVersion = overrides.platformsVersion || VERSION;
-  const targets = overrides.targets || PLATFORM_TARGETS.map(([target, packageName]) => ({
-    target,
-    package: packageName,
-  }));
-  const optionalDependencies = {
-    ...Object.fromEntries(PLATFORM_TARGETS.map(([, packageName]) => [packageName, npmVersion])),
-    ...(overrides.optionalDependencies || {}),
-  };
-  for (const packageName of overrides.removeOptionalDependencies || []) {
-    delete optionalDependencies[packageName];
-  }
+  const targets = overrides.targets || PLATFORM_TARGETS.map((target) => ({ target }));
 
   fs.mkdirSync(path.join(rootDir, 'npm'));
   fs.writeFileSync(path.join(rootDir, 'Cargo.toml'), `[package]\nname = "okf-wiki"\nversion = "${cargoVersion}"\n\n[dependencies.some-dependency]\nversion = "9.9.9"\n`);
   fs.writeFileSync(path.join(rootDir, 'package.json'), `${JSON.stringify({
     name: 'okf-wiki',
     version: npmVersion,
-    optionalDependencies,
+    ...(overrides.packageJson || {}),
   }, null, 2)}\n`);
   fs.writeFileSync(path.join(rootDir, 'npm', 'platforms.json'), `${JSON.stringify({
     version: platformsVersion,
@@ -94,32 +84,26 @@ test('Given a mismatched platform metadata version, When the contract is validat
   assertValidationFails({ platformsVersion: '0.2.0' }, /npm\/platforms\.json version .* does not match/);
 });
 
-test('Given a missing optional dependency, When the contract is validated, Then it fails the exact package-set check', () => {
-  assertValidationFails({ removeOptionalDependencies: ['okf-wiki-linux-x64-gnu'] }, /optionalDependencies package set .*missing okf-wiki-linux-x64-gnu/);
+test('Given optional dependencies, When the contract is validated, Then it rejects per-platform npm publication metadata', () => {
+  assertValidationFails(
+    { packageJson: { optionalDependencies: { 'legacy-platform-package': '^0.0.1' } } },
+    /package\.json must not define optionalDependencies/
+  );
 });
 
-test('Given an unexpected optional dependency, When the contract is validated, Then it fails the exact package-set check', () => {
-  assertValidationFails({ optionalDependencies: { 'okf-wiki-extra': VERSION } }, /optionalDependencies package set .*unexpected okf-wiki-extra/);
-});
-
-test('Given an optional dependency with a different exact version, When the contract is validated, Then it fails', () => {
-  assertValidationFails({ optionalDependencies: { 'okf-wiki-linux-x64-gnu': '0.2.0' } }, /optionalDependency okf-wiki-linux-x64-gnu .* exact version 0\.1\.0/);
-});
-
-test('Given an optional dependency with a loose semver range, When the contract is validated, Then it fails', () => {
-  assertValidationFails({ optionalDependencies: { 'okf-wiki-linux-x64-gnu': '^0.1.0' } }, /optionalDependency okf-wiki-linux-x64-gnu .* exact version 0\.1\.0/);
+test('Given a target package name, When the contract is validated, Then it rejects per-platform npm publication metadata', () => {
+  const targets = PLATFORM_TARGETS.map((target) => ({ target }));
+  targets[0].package = 'legacy-platform-package';
+  assertValidationFails(
+    { targets },
+    /npm\/platforms\.json targets\[0\] must not define package/
+  );
 });
 
 test('Given duplicate platform targets, When the contract is validated, Then it fails', () => {
-  const targets = PLATFORM_TARGETS.map(([target, packageName]) => ({ target, package: packageName }));
+  const targets = PLATFORM_TARGETS.map((target) => ({ target }));
   targets[1].target = targets[0].target;
   assertValidationFails({ targets }, /duplicate target x86_64-unknown-linux-gnu/);
-});
-
-test('Given duplicate platform packages, When the contract is validated, Then it fails', () => {
-  const targets = PLATFORM_TARGETS.map(([target, packageName]) => ({ target, package: packageName }));
-  targets[1].package = targets[0].package;
-  assertValidationFails({ targets }, /duplicate package okf-wiki-linux-x64-gnu/);
 });
 
 test('Given a v tag for another version, When the contract is validated, Then it fails', () => {
