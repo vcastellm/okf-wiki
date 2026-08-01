@@ -7,7 +7,9 @@ use anyhow::{Context, Result, bail};
 use regex::Regex;
 use walkdir::WalkDir;
 
-use crate::{frontmatter::parse_frontmatter, model::Concept};
+use crate::{
+    config::FolderName, config::WikiConfig, frontmatter::parse_frontmatter, model::Concept,
+};
 
 pub fn resolve_bundle(path: &Path) -> Result<PathBuf> {
     let root = path
@@ -21,18 +23,28 @@ pub fn resolve_bundle(path: &Path) -> Result<PathBuf> {
 
 pub fn load_bundle(root: &Path) -> Result<Vec<Concept>> {
     let root = resolve_bundle(root)?;
-    let mut paths = WalkDir::new(&root)
+    let config = WikiConfig::load(&root)?;
+    load_bundle_from_resolved_root(&root, &config)
+}
+
+pub(crate) fn load_bundle_with_config(root: &Path, config: &WikiConfig) -> Result<Vec<Concept>> {
+    let root = resolve_bundle(root)?;
+    load_bundle_from_resolved_root(&root, config)
+}
+
+fn load_bundle_from_resolved_root(root: &Path, config: &WikiConfig) -> Result<Vec<Concept>> {
+    let mut paths = WalkDir::new(root)
         .into_iter()
         .map(|entry| entry.map(|entry| entry.into_path()))
         .collect::<Result<Vec<_>, _>>()?;
     paths.retain(|path| {
         path.extension().and_then(|extension| extension.to_str()) == Some("md")
-            && is_visible_page(path, &root)
+            && is_visible_page(path, root, config.folders().raw())
     });
     paths.sort();
     paths
         .into_iter()
-        .map(|path| load_concept(&root, path))
+        .map(|path| load_concept(root, path))
         .collect()
 }
 
@@ -102,12 +114,12 @@ fn markdown_targets(body: &str) -> Result<Vec<String>> {
         .collect())
 }
 
-fn is_visible_page(path: &Path, root: &Path) -> bool {
+fn is_visible_page(path: &Path, root: &Path, raw_folders: &[FolderName]) -> bool {
     let Ok(relative) = path.strip_prefix(root) else {
         return false;
     };
     let mut components = relative.components();
-    let first_is_raw = matches!(components.next(), Some(Component::Normal(name)) if name == "raw");
+    let first_is_raw = matches!(components.next(), Some(Component::Normal(name)) if raw_folders.iter().any(|raw| name == raw.as_str()));
     !first_is_raw
         && relative.components().all(|component| match component {
             Component::Normal(name) => !name.to_string_lossy().starts_with('.'),

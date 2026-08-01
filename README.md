@@ -60,6 +60,12 @@ Bundle-scoped commands require `--bundle <path>`. Run them from the intended bun
 `--bundle .`, for example `okf-wiki status --bundle .`. Relative bundle paths are resolved against
 the command's current working directory.
 
+An optional `okf-wiki.toml` at the bundle root configures folder names. Absent config uses the
+default layout (`raw/`, `sources/`, `notes/`, `entities/`, `concepts/`). A partial config
+overrides only the keys it declares. See
+[`skills/okf-wiki/references/okf-spec.md`](skills/okf-wiki/references/okf-spec.md) for the full
+`[folders]` schema.
+
 Run `okf-wiki --help` or `okf-wiki <subcommand> --help` for complete flags.
 
 ## Distribution

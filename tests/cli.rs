@@ -2,6 +2,7 @@ use std::process::Command;
 
 use clap::{CommandFactory, Parser};
 use okf_wiki::cli::Cli;
+use serde_json::Value;
 use tempfile::tempdir;
 
 #[test]
@@ -109,6 +110,65 @@ fn status_bundle_dot_uses_command_current_dir() -> anyhow::Result<()> {
     let stdout = String::from_utf8(output.stdout)?;
     assert!(output.status.success());
     assert!(stdout.contains(&format!("OKF status: {}", expected_root.display())));
+    Ok(())
+}
+
+#[test]
+fn status_json_counts_visible_direct_files_across_configured_raw_roots() -> anyhow::Result<()> {
+    // Given: a bundle with multiple configured raw roots containing visible, hidden, and nested files.
+    let bundle = tempdir()?;
+    std::fs::write(
+        bundle.path().join("okf-wiki.toml"),
+        "[folders]\nraw = [\"incoming\", \"research\"]\n",
+    )?;
+    std::fs::create_dir_all(bundle.path().join("incoming/nested"))?;
+    std::fs::create_dir_all(bundle.path().join("research"))?;
+    std::fs::write(bundle.path().join("incoming/a.md"), "a")?;
+    std::fs::write(bundle.path().join("incoming/.hidden.md"), "hidden")?;
+    std::fs::write(bundle.path().join("incoming/nested/deep.md"), "deep")?;
+    std::fs::write(bundle.path().join("research/b.md"), "b")?;
+    std::fs::write(bundle.path().join("research/c.txt"), "c")?;
+
+    // When: status is requested as machine-readable JSON.
+    let executable = env!("CARGO_BIN_EXE_okf-wiki");
+    let output = Command::new(executable)
+        .args([
+            "status",
+            "--bundle",
+            bundle.path().to_string_lossy().as_ref(),
+            "--json",
+        ])
+        .output()?;
+
+    // Then: the raw count sums only visible direct files across configured roots.
+    assert!(output.status.success());
+    let body: Value = serde_json::from_slice(&output.stdout)?;
+    assert_eq!(body["raw_files"], 3);
+    Ok(())
+}
+
+#[test]
+fn status_fails_before_output_when_config_is_malformed() -> anyhow::Result<()> {
+    // Given: a bundle with an invalid config that would otherwise have raw files to count.
+    let bundle = tempdir()?;
+    std::fs::write(bundle.path().join("okf-wiki.toml"), "[folders]\nraw = []\n")?;
+    std::fs::create_dir_all(bundle.path().join("raw"))?;
+    std::fs::write(bundle.path().join("raw/a.md"), "a")?;
+
+    // When: status is run through the compiled CLI.
+    let executable = env!("CARGO_BIN_EXE_okf-wiki");
+    let output = Command::new(executable)
+        .args([
+            "status",
+            "--bundle",
+            bundle.path().to_string_lossy().as_ref(),
+            "--json",
+        ])
+        .output()?;
+
+    // Then: command execution fails before any status JSON is printed.
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
     Ok(())
 }
 

@@ -15,7 +15,7 @@ description: >-
 # LLM Wiki (OKF-light)
 
 Persistent markdown knowledge base with two layers:
-- `raw/` — immutable source documents. Read only.
+- Raw folders (default: `raw/`) — immutable source documents. Read only. Configured via `okf-wiki.toml`.
 - `*.md` — LLM-generated concept pages, one idea per file.
 
 Full format reference: [references/okf-spec.md](references/okf-spec.md).
@@ -38,12 +38,11 @@ consulted through its index.
    directory is unknown, determine it before invoking `okf-wiki`.
 2. **Read `index.md` first. Always.** Even if it looks short, or its `<!-- okf:auto-index -->`
    section is empty.
-3. **Follow the section links listed in `index.md`** — `/notes/index.md`, `/sources/index.md`,
-   `/entities/index.md`, `/concepts/index.md`. Subsection indexes list the actual pages.
+3. **Follow the section links listed in `index.md`** — subsection indexes list the actual pages. Default section folders are `notes/`, `sources/`, `entities/`, `concepts/`; read `okf-wiki.toml` at the bundle root to confirm configured names before constructing paths.
 4. If a topic isn't surfaced by the indexes, use **`okf-wiki search <query> --bundle .`** for ranked
    results across concept pages before falling back to raw grep.
 5. Cite by bundle-relative path: `per /notes/project-overview.md`.
-6. Only after the wiki is silent or confidence is low, fall back to `raw/` then external sources.
+6. Only after the wiki is silent or confidence is low, fall back to the configured raw folders then external sources.
 
 Common failure modes to avoid:
 - Skipping the wiki and reading project / raw files directly.
@@ -111,10 +110,10 @@ Use `--from-readme` to infer the title and description from a `README.md` in the
 okf-wiki init . --from-readme [--readme-path path/to/README.md]
 ```
 
-This creates the `raw/`, `sources/`, `notes/`, `entities/`, and `concepts/` directories plus initial index files.
+This creates the configured folder directories (defaults: `raw/`, `sources/`, `notes/`, `entities/`, `concepts/`) plus initial index files.
 
 ### INGEST
-Add a new raw source to the wiki. The script copies the source into `raw/`, creates a skeleton
+Add a new raw source to the wiki. The script copies the source into the configured ingest raw folder (default: `raw/`), creates a skeleton
 `source` page with correct frontmatter, updates `log.md`, rebuilds indexes, lints, and commits:
 
 ```bash
@@ -123,7 +122,7 @@ okf-wiki ingest <source-file> --bundle . [--title "Title"] [--slug my-slug] [--n
 
 After the script runs:
 
-1. Read the source and fill in the skeleton `sources/<slug>.md` page.
+1. Read the source and fill in the skeleton source page under the configured sources folder (default: `sources/<slug>.md`).
 2. Grep affected pages; re-read the raw source; make surgical edits to existing pages.
 3. Create new `Note` pages for new concepts, linking each to at least one existing page.
 4. Run `okf-wiki update <page> --bundle .` on each page you edited to bump timestamps and log.
@@ -209,10 +208,25 @@ Uses `<!-- BEGIN okf -->` / `<!-- END okf -->` markers so re-running upgrades
 the block in place without touching the rest of the file.
 
 
+## Configuration
+
+A bundle can carry an optional `okf-wiki.toml` at its root. One bundle equals one project root. Absent config defaults to the standard layout; a partial config overrides only the keys it declares.
+
+```toml
+[folders]
+raw = ["raw", "research"]
+sources = "sources"
+notes = "notes"
+entities = "entities"
+concepts = "concepts"
+```
+
+Folder values are root-relative names and must be unique. `raw` is an ordered, non-empty list. All raw entries are excluded from page discovery. The first raw entry is the ingest destination. `okf-wiki status --bundle .` counts direct visible files in each raw folder separately. See [references/okf-spec.md](references/okf-spec.md) for the full schema and defaults.
+
 ## Format essentials
 
 - `type` is required on every concept page: `Source`, `Note`, `Index`.
-- `sources` is required on factual pages (`Source`, `Note`). Must point to `raw/<file>` that exists.
+- `sources` is required on factual pages (`Source`, `Note`). Must point to a file inside a configured raw folder (default: `raw/<file>`) that exists.
 - Cross-links are root-relative: `[label](/path/to/file.md)`. Targets must exist. External URLs (`https://...`) are fine and are not checked.
 - `index.md` is the directory entry point; `log.md` is the change history.
 - `status` is optional on concept pages: `active` (default), `draft`, `archived`.
@@ -221,7 +235,7 @@ the block in place without touching the rest of the file.
 
 ## Rules
 
-- Compile from `raw/`, not from wiki text.
+- Compile from the configured raw folders (default: `raw/`), not from wiki text.
 - Every factual page has `sources`.
 - Surgical edits only; do not rewrite whole pages.
 - Flag contradictions; do not overwrite silently.
