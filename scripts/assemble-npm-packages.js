@@ -108,7 +108,7 @@ function validateTarget(target, index) {
     throw new AssemblyError(`npm/platforms.json targets[${index}] must be an object.`);
   }
 
-  for (const field of ['target', 'platform', 'architecture', 'package', 'binary']) {
+  for (const field of ['target', 'platform', 'architecture', 'binary']) {
     if (typeof target[field] !== 'string' || target[field].length === 0) {
       throw new AssemblyError(`npm/platforms.json targets[${index}].${field} must be a non-empty string.`);
     }
@@ -125,69 +125,17 @@ function validatePlatforms(platforms) {
   }
 
   const seenTargets = new Set();
-  const seenPackages = new Set();
 
   platforms.targets.forEach((target, index) => {
     validateTarget(target, index);
     if (seenTargets.has(target.target)) {
       throw new AssemblyError(`npm/platforms.json contains duplicate target ${target.target}.`);
     }
-    if (seenPackages.has(target.package)) {
-      throw new AssemblyError(`npm/platforms.json contains duplicate package ${target.package}.`);
-    }
     seenTargets.add(target.target);
-    seenPackages.add(target.package);
   });
 }
 
-function libcForTarget(target) {
-  if (target.environment === 'gnu') {
-    return 'glibc';
-  }
-  if (target.environment === 'musl') {
-    return 'musl';
-  }
-  return undefined;
-}
-
-function platformManifest(target, version, rootPackage) {
-  const manifest = {
-    name: target.package,
-    version,
-    description: `Native okf-wiki binary for ${target.target}`,
-    license: rootPackage.license,
-    repository: rootPackage.repository,
-    files: ['bin/'],
-    os: [target.platform],
-    cpu: [target.architecture],
-    publishConfig: {
-      access: 'public',
-      provenance: true,
-    },
-  };
-
-  const libc = target.platform === 'linux' ? libcForTarget(target) : undefined;
-  if (libc) {
-    manifest.libc = [libc];
-  }
-
-  return manifest;
-}
-
-function rootManifest(rootPackage, platforms, version) {
-  const optionalDependencyNames = Object.keys(rootPackage.optionalDependencies || {});
-  const platformPackages = new Set(platforms.targets.map((target) => target.package));
-  for (const packageName of optionalDependencyNames) {
-    if (!platformPackages.has(packageName)) {
-      throw new AssemblyError(`package.json optionalDependencies contains unexpected package ${packageName}.`);
-    }
-  }
-  for (const target of platforms.targets) {
-    if (!Object.prototype.hasOwnProperty.call(rootPackage.optionalDependencies || {}, target.package)) {
-      throw new AssemblyError(`package.json optionalDependencies is missing ${target.package}.`);
-    }
-  }
-
+function rootManifest(rootPackage, version) {
   return {
     name: rootPackage.name,
     version,
@@ -197,9 +145,8 @@ function rootManifest(rootPackage, platforms, version) {
     homepage: rootPackage.homepage,
     bugs: rootPackage.bugs,
     engines: rootPackage.engines,
-    files: ['bin/okf-wiki.js', 'npm/platforms.json', 'README.md', 'LICENSE'],
+    files: ['bin/okf-wiki.js', 'bin/native/', 'npm/platforms.json', 'README.md', 'LICENSE'],
     bin: rootPackage.bin,
-    optionalDependencies: Object.fromEntries(optionalDependencyNames.map((name) => [name, version])),
     publishConfig: {
       access: 'public',
       provenance: true,
@@ -227,7 +174,7 @@ function assembleNpmPackages(options = {}) {
 
   const rootPackageDir = path.join(outDir, rootPackage.name);
   fs.mkdirSync(rootPackageDir, { recursive: true });
-  writeJsonFile(path.join(rootPackageDir, 'package.json'), rootManifest(rootPackage, platforms, version));
+  writeJsonFile(path.join(rootPackageDir, 'package.json'), rootManifest(rootPackage, version));
   copyRequiredFile(path.join(rootDir, 'bin', 'okf-wiki.js'), path.join(rootPackageDir, 'bin', 'okf-wiki.js'), 'launcher');
   fs.chmodSync(path.join(rootPackageDir, 'bin', 'okf-wiki.js'), 0o755);
   copyRequiredFile(platformsPath, path.join(rootPackageDir, 'npm', 'platforms.json'), 'npm/platforms.json');
@@ -235,16 +182,14 @@ function assembleNpmPackages(options = {}) {
   copyRequiredFile(path.join(rootDir, 'LICENSE'), path.join(rootPackageDir, 'LICENSE'), 'LICENSE');
 
   for (const target of platforms.targets) {
-    const packageDir = path.join(outDir, target.package);
     const sourceBinary = path.join(binDir, target.target, target.binary);
-    const destinationBinary = path.join(packageDir, 'bin', target.binary);
+    const destinationBinary = path.join(rootPackageDir, 'bin', 'native', target.target, target.binary);
 
     if (!fs.existsSync(sourceBinary)) {
-      throw new AssemblyError(`Missing native binary for ${target.package} (${target.target}): ${sourceBinary}`);
+      throw new AssemblyError(`Missing native binary for ${target.target}: ${sourceBinary}`);
     }
 
-    writeJsonFile(path.join(packageDir, 'package.json'), platformManifest(target, version, rootPackage));
-    copyRequiredFile(sourceBinary, destinationBinary, `native binary for ${target.package}`);
+    copyRequiredFile(sourceBinary, destinationBinary, `native binary for ${target.target}`);
     if (target.platform !== 'win32') {
       fs.chmodSync(destinationBinary, 0o755);
     }
@@ -252,7 +197,6 @@ function assembleNpmPackages(options = {}) {
 
   return {
     rootPackage: rootPackage.name,
-    platformPackages: platforms.targets.map((target) => target.package),
     outDir,
     version,
   };
@@ -266,7 +210,7 @@ function main(argv = process.argv.slice(2)) {
   }
 
   const result = assembleNpmPackages(options);
-  process.stdout.write(`Assembled ${1 + result.platformPackages.length} npm packages in ${result.outDir} for ${result.version}.\n`);
+  process.stdout.write(`Assembled npm package ${result.rootPackage} in ${result.outDir} for ${result.version}.\n`);
 }
 
 if (require.main === module) {

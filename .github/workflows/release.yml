@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       publish_npm:
-        description: Publish the assembled npm packages after creating the GitHub release
+        description: Publish the assembled npm package after creating the GitHub release
         required: false
         default: false
         type: boolean
@@ -265,7 +265,7 @@ jobs:
           fi
 
   assemble-npm:
-    name: Assemble npm packages
+    name: Assemble npm package
     needs:
       - validate
       - build
@@ -304,34 +304,30 @@ jobs:
           }
           NODE
 
-      - name: Assemble all npm packages
+      - name: Assemble bundled npm package
         run: node scripts/assemble-npm-packages.js --version "$VERSION" --bin-dir target/npm-binaries --out-dir dist
 
-      - name: Dry-run every assembled npm package
+      - name: Dry-run assembled npm package
         shell: bash
         run: |
           set -euo pipefail
-          for package_dir in dist/*; do
-            (
-              cd "$package_dir"
-              npm pack --dry-run
-            )
-          done
+          cd dist/okf-wiki
+          npm pack --dry-run
 
-      - name: Archive assembled npm packages
+      - name: Archive assembled npm package
         shell: bash
-        run: tar -C dist -czf npm-packages.tar.gz .
+        run: tar -C dist -czf npm-package.tar.gz okf-wiki
 
-      - name: Upload assembled npm packages
+      - name: Upload assembled npm package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: assembled-npm-packages
-          path: npm-packages.tar.gz
+          name: assembled-npm-package
+          path: npm-package.tar.gz
           if-no-files-found: error
           retention-days: 7
 
   publish-npm:
-    name: Publish npm packages
+    name: Publish npm package
     needs:
       - create-release
       - assemble-npm
@@ -350,33 +346,26 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - name: Download assembled npm packages
+      - name: Download assembled npm package
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: assembled-npm-packages
+          name: assembled-npm-package
           path: .
 
-      - name: Publish platform packages before the root package
+      - name: Publish bundled npm package
         shell: bash
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
           if [[ -z "$NPM_TOKEN" ]]; then
-            printf '%s\n' 'NPM_TOKEN is required to publish npm packages.' >&2
+            printf '%s\n' 'NPM_TOKEN is required to publish the npm package.' >&2
             exit 1
           fi
           export NODE_AUTH_TOKEN="$NPM_TOKEN"
           mkdir published-npm
-          tar -xzf npm-packages.tar.gz -C published-npm
-          mapfile -t platform_packages < <(node -e 'for (const target of require("./npm/platforms.json").targets) console.log(target.package)')
-          for package_name in "${platform_packages[@]}"; do
-            test -d "published-npm/$package_name"
-            (
-              cd "published-npm/$package_name"
-              npm publish --provenance --access public
-            )
-          done
+          tar -xzf npm-package.tar.gz -C published-npm
+          test -d published-npm/okf-wiki
           (
             cd published-npm/okf-wiki
             npm publish --provenance --access public

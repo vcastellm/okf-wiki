@@ -40,5 +40,29 @@ jobs:
       - name: Validate distribution version contract
         run: node scripts/check-version-sync.js
 
-      - name: Dry-run root npm package
-        run: npm pack --dry-run
+      - name: Assemble and dry-run bundled npm package
+        shell: bash
+        run: |
+          set -euo pipefail
+          workspace="$(mktemp -d)"
+          trap 'rm -rf "$workspace"' EXIT
+          bin_dir="$workspace/npm-binaries"
+          out_dir="$workspace/dist"
+          node - "$bin_dir" <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const { targets } = require('./npm/platforms.json');
+          const binDir = process.argv[2];
+
+          for (const { target, binary } of targets) {
+            const binaryPath = path.join(binDir, target, binary);
+            fs.mkdirSync(path.dirname(binaryPath), { recursive: true });
+            fs.writeFileSync(binaryPath, 'fixture native binary\n');
+          }
+          NODE
+          version="$(node -p "require('./package.json').version")"
+          node scripts/assemble-npm-packages.js --version "$version" --bin-dir "$bin_dir" --out-dir "$out_dir"
+          (
+            cd "$out_dir/okf-wiki"
+            npm pack --dry-run
+          )

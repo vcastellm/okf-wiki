@@ -5,7 +5,6 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
-const { createRequire } = require('module');
 
 const platforms = require('../npm/platforms.json');
 
@@ -100,35 +99,15 @@ function selectTarget(targets, runtime) {
   return selected;
 }
 
-function packageResolver(baseDir) {
-  const anchor = path.join(path.resolve(baseDir || __dirname), '__okf_wiki_launcher__.js');
-  return createRequire(anchor);
-}
-
-function resolvePackageRoot(packageName, options) {
-  const baseDir = options && options.baseDir ? options.baseDir : __dirname;
-  const resolver = options && options.require ? options.require : packageResolver(baseDir);
-
-  try {
-    return path.dirname(resolver.resolve(`${packageName}/package.json`));
-  } catch (error) {
-    throw new LauncherError(
-      `The optional native package "${packageName}" is not installed. Reinstall okf-wiki with optional dependencies enabled for this platform (for example: npm install okf-wiki, or pnpm install without --no-optional).`,
-      'ERR_OKF_WIKI_OPTIONAL_PACKAGE_MISSING',
-      error
-    );
-  }
-}
-
 function resolveNativeBinary(target, options) {
-  const packageRoot = resolvePackageRoot(target.package, options);
-  const binaryPath = path.join(packageRoot, 'bin', target.binary);
+  const packageRoot = path.resolve(options && options.baseDir ? options.baseDir : path.join(__dirname, '..'));
+  const binaryPath = path.join(packageRoot, 'bin', 'native', target.target, target.binary);
 
   try {
     const stat = fs.statSync(binaryPath);
     if (!stat.isFile()) {
       throw new LauncherError(
-        `The native okf-wiki binary for package "${target.package}" exists but is not a file: ${binaryPath}`,
+        `The bundled native okf-wiki binary for ${target.target} exists but is not a file: ${binaryPath}`,
         'ERR_OKF_WIKI_BINARY_NOT_FILE'
       );
     }
@@ -138,7 +117,7 @@ function resolveNativeBinary(target, options) {
     }
 
     throw new LauncherError(
-      `The optional native package "${target.package}" is installed, but its binary was not found at ${binaryPath}. Reinstall okf-wiki and ensure optional package contents were not pruned.`,
+      `The bundled native okf-wiki binary for ${target.target} was not found at ${binaryPath}. Reinstall okf-wiki to restore the bundled native binaries.`,
       'ERR_OKF_WIKI_BINARY_MISSING',
       error
     );
@@ -213,7 +192,6 @@ module.exports = {
   detectLinuxLibc,
   forwardExit,
   resolveNativeBinary,
-  resolvePackageRoot,
   run,
   selectTarget,
   signalExitCode,
