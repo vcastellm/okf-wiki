@@ -1,7 +1,6 @@
 # okf-wiki
 
 [![CI](https://github.com/vcastellm/okf-wiki/actions/workflows/ci.yml/badge.svg)](https://github.com/vcastellm/okf-wiki/actions/workflows/ci.yml)
-[![Release](https://github.com/vcastellm/okf-wiki/actions/workflows/release.yml/badge.svg)](https://github.com/vcastellm/okf-wiki/actions/workflows/release.yml)
 
 <img src="https://www.rust-lang.org/logos/rust-logo-32x32.png" alt="Rust" width="20" height="20" align="absmiddle"> Rust &nbsp; **Kernel powered by Rust**
 
