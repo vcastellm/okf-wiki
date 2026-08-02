@@ -17,6 +17,7 @@ fn loads_default_folders_when_config_file_is_absent() -> anyhow::Result<()> {
 
     // Then: every folder uses the current built-in default.
     assert_eq!(raw_names(config.folders().raw()), vec!["raw"]);
+    assert!(config.folders().ignored().is_empty());
     assert_eq!(config.folders().sources().as_str(), "sources");
     assert_eq!(config.folders().notes().as_str(), "notes");
     assert_eq!(config.folders().entities().as_str(), "entities");
@@ -38,10 +39,31 @@ fn preserves_defaults_for_partial_config_file() -> anyhow::Result<()> {
 
     // Then: the raw order is preserved and managed folders keep defaults.
     assert_eq!(raw_names(config.folders().raw()), vec!["raw", "research"]);
+    assert!(config.folders().ignored().is_empty());
     assert_eq!(config.folders().sources().as_str(), "sources");
     assert_eq!(config.folders().notes().as_str(), "notes");
     assert_eq!(config.folders().entities().as_str(), "entities");
     assert_eq!(config.folders().concepts().as_str(), "concepts");
+    Ok(())
+}
+
+#[test]
+fn preserves_order_for_explicit_ignored_folders() -> anyhow::Result<()> {
+    // Given: a config file declaring ignored folders in a specific order.
+    let bundle = tempdir()?;
+    fs::write(
+        bundle.path().join("okf-wiki.toml"),
+        "[folders]\nignored = [\"scratch\", \"vendor\"]\n",
+    )?;
+
+    // When: its wiki config is loaded.
+    let config = WikiConfig::load(bundle.path())?;
+
+    // Then: ignored folders are exposed in the original order.
+    assert_eq!(
+        raw_names(config.folders().ignored()),
+        vec!["scratch", "vendor"]
+    );
     Ok(())
 }
 
@@ -79,6 +101,9 @@ fn rejects_invalid_config_with_path_context() -> anyhow::Result<()> {
         "[folders]\nraw = [\".hidden\"]\n",
         "[folders]\nraw = [\"raw\", \"notes\"]\n",
         "[folders]\nraw = [\"raw\", \"RAW\"]\n",
+        "[folders]\nignored = [\"scratch\", \"SCRATCH\"]\n",
+        "[folders]\nignored = [\"raw\"]\n",
+        "[folders]\nignored = [\"notes\"]\n",
         "[folders]\nnotes = \"README.md\"\n",
     ] {
         // Given: a config file containing strict invalid input.

@@ -62,6 +62,7 @@ impl WikiConfig {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FoldersConfig {
     raw: Vec<FolderName>,
+    ignored: Vec<FolderName>,
     sources: FolderName,
     notes: FolderName,
     entities: FolderName,
@@ -71,6 +72,10 @@ pub struct FoldersConfig {
 impl FoldersConfig {
     pub fn raw(&self) -> &[FolderName] {
         &self.raw
+    }
+
+    pub fn ignored(&self) -> &[FolderName] {
+        &self.ignored
     }
 
     pub fn sources(&self) -> &FolderName {
@@ -91,6 +96,7 @@ impl FoldersConfig {
 
     pub(super) fn from_validated(
         raw: Vec<FolderName>,
+        ignored: Vec<FolderName>,
         sources: FolderName,
         notes: FolderName,
         entities: FolderName,
@@ -98,6 +104,7 @@ impl FoldersConfig {
     ) -> Self {
         Self {
             raw,
+            ignored,
             sources,
             notes,
             entities,
@@ -110,6 +117,7 @@ impl Default for FoldersConfig {
     fn default() -> Self {
         Self {
             raw: vec![FolderName(DEFAULT_RAW.to_owned())],
+            ignored: vec![],
             sources: FolderName(DEFAULT_SOURCES.to_owned()),
             notes: FolderName(DEFAULT_NOTES.to_owned()),
             entities: FolderName(DEFAULT_ENTITIES.to_owned()),

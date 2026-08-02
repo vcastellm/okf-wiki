@@ -5,10 +5,12 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 use regex::Regex;
-use walkdir::WalkDir;
+use walkdir::{DirEntry, WalkDir};
 
 use crate::{
-    config::FolderName, config::WikiConfig, frontmatter::parse_frontmatter, model::Concept,
+    config::{FoldersConfig, WikiConfig},
+    frontmatter::parse_frontmatter,
+    model::Concept,
 };
 
 pub fn resolve_bundle(path: &Path) -> Result<PathBuf> {
@@ -35,11 +37,12 @@ pub(crate) fn load_bundle_with_config(root: &Path, config: &WikiConfig) -> Resul
 fn load_bundle_from_resolved_root(root: &Path, config: &WikiConfig) -> Result<Vec<Concept>> {
     let mut paths = WalkDir::new(root)
         .into_iter()
+        .filter_entry(|entry| should_visit(entry, root, config.folders()))
         .map(|entry| entry.map(|entry| entry.into_path()))
         .collect::<Result<Vec<_>, _>>()?;
     paths.retain(|path| {
         path.extension().and_then(|extension| extension.to_str()) == Some("md")
-            && is_visible_page(path, root, config.folders().raw())
+            && is_visible_page(path, root, config.folders())
     });
     paths.sort();
     paths
@@ -114,15 +117,36 @@ fn markdown_targets(body: &str) -> Result<Vec<String>> {
         .collect())
 }
 
-fn is_visible_page(path: &Path, root: &Path, raw_folders: &[FolderName]) -> bool {
+fn should_visit(entry: &DirEntry, root: &Path, folders: &FoldersConfig) -> bool {
+    let path = entry.path();
+    if path == root {
+        return true;
+    }
     let Ok(relative) = path.strip_prefix(root) else {
         return false;
     };
-    let mut components = relative.components();
-    let first_is_raw = matches!(components.next(), Some(Component::Normal(name)) if raw_folders.iter().any(|raw| name == raw.as_str()));
-    !first_is_raw
-        && relative.components().all(|component| match component {
-            Component::Normal(name) => !name.to_string_lossy().starts_with('.'),
-            _ => true,
-        })
+    is_visible_path(relative)
+        && (!entry.file_type().is_dir() || !is_root_excluded(relative, folders))
+}
+
+fn is_visible_page(path: &Path, root: &Path, folders: &FoldersConfig) -> bool {
+    let Ok(relative) = path.strip_prefix(root) else {
+        return false;
+    };
+    is_visible_path(relative) && !is_root_excluded(relative, folders)
+}
+
+fn is_visible_path(relative: &Path) -> bool {
+    relative.components().all(|component| match component {
+        Component::Normal(name) => !name.to_string_lossy().starts_with('.'),
+        _ => true,
+    })
+}
+
+fn is_root_excluded(relative: &Path, folders: &FoldersConfig) -> bool {
+    matches!(relative.components().next(), Some(Component::Normal(name)) if folders
+        .raw()
+        .iter()
+        .chain(folders.ignored())
+        .any(|folder| name == folder.as_str()))
 }

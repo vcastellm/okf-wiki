@@ -29,6 +29,8 @@ struct ConfigFile {
 struct FoldersFile {
     #[serde(default = "default_raw")]
     raw: Vec<String>,
+    #[serde(default)]
+    ignored: Vec<String>,
     #[serde(default = "default_sources")]
     sources: String,
     #[serde(default = "default_notes")]
@@ -43,6 +45,7 @@ impl Default for FoldersFile {
     fn default() -> Self {
         Self {
             raw: default_raw(),
+            ignored: Vec::new(),
             sources: default_sources(),
             notes: default_notes(),
             entities: default_entities(),
@@ -61,15 +64,20 @@ fn folders_from_file(file: FoldersFile) -> Result<FoldersConfig, String> {
         .into_iter()
         .map(parse_folder_name)
         .collect::<Result<Vec<_>, _>>()?;
+    let ignored = file
+        .ignored
+        .into_iter()
+        .map(parse_folder_name)
+        .collect::<Result<Vec<_>, _>>()?;
     let sources = parse_folder_name(file.sources)?;
     let notes = parse_folder_name(file.notes)?;
     let entities = parse_folder_name(file.entities)?;
     let concepts = parse_folder_name(file.concepts)?;
 
-    reject_duplicates(&raw, [&sources, &notes, &entities, &concepts])?;
+    reject_duplicates(&raw, [&sources, &notes, &entities, &concepts], &ignored)?;
 
     Ok(FoldersConfig::from_validated(
-        raw, sources, notes, entities, concepts,
+        raw, ignored, sources, notes, entities, concepts,
     ))
 }
 
@@ -100,9 +108,13 @@ fn validate_folder_name(value: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn reject_duplicates(raw: &[FolderName], managed: [&FolderName; 4]) -> Result<(), String> {
+fn reject_duplicates(
+    raw: &[FolderName],
+    managed: [&FolderName; 4],
+    ignored: &[FolderName],
+) -> Result<(), String> {
     let mut names = HashSet::new();
-    for folder in raw.iter().chain(managed) {
+    for folder in raw.iter().chain(managed).chain(ignored) {
         if !names.insert(comparable_name(folder.as_str())) {
             return Err(format!("folder name '{}' is duplicated", folder.as_str()));
         }

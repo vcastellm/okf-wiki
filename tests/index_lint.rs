@@ -72,3 +72,41 @@ fn index_and_lint_ignore_configured_raw_roots() -> anyhow::Result<()> {
     ));
     Ok(())
 }
+
+#[test]
+fn index_and_lint_ignore_configured_ignored_root_subtrees() -> anyhow::Result<()> {
+    // Given: configured ignored roots containing malformed nested markdown and one managed page.
+    let bundle = tempdir()?;
+    fs::write(
+        bundle.path().join("okf-wiki.toml"),
+        "[folders]\nignored = [\"scratch\", \"vendor\"]\n",
+    )?;
+    fs::create_dir_all(bundle.path().join("scratch/nested/deeper"))?;
+    fs::create_dir_all(bundle.path().join("vendor/package/docs"))?;
+    fs::create_dir_all(bundle.path().join("notes"))?;
+    fs::write(
+        bundle.path().join("scratch/nested/deeper/bad.md"),
+        "---\ntitle: Missing Type\ntimestamp: not-a-date\n---\n\n[Missing](/missing.md)\n",
+    )?;
+    fs::write(
+        bundle.path().join("vendor/package/docs/bad.md"),
+        "markdown without frontmatter",
+    )?;
+    fs::write(
+        bundle.path().join("notes/page.md"),
+        "---\ntype: Note\ntitle: Page\ntimestamp: 2026-07-03T00:00:00Z\n---\n\nBody.\n",
+    )?;
+
+    // When: indexes are rebuilt and lint runs through their shared bundle reader.
+    let report = rebuild_indexes(bundle.path(), false)?;
+    let lint = lint_bundle(bundle.path(), LintOptions::default())?;
+
+    // Then: ignored markdown is absent from generated indexes and lint accounting.
+    assert_eq!(report.entries.len(), 1);
+    assert_eq!(report.entries[0].0, bundle.path().join("notes/index.md"));
+    assert_eq!(lint.pages, 1);
+    assert!(lint.errors.iter().all(|issue| {
+        !issue.file.starts_with("/scratch/") && !issue.file.starts_with("/vendor/")
+    }));
+    Ok(())
+}

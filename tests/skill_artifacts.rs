@@ -14,6 +14,7 @@ const SPEC_FOLDER_CONFIG_TOKENS: &[&str] = &[
     "notes =",
     "entities =",
     "concepts =",
+    "ignored =",
     "okf-wiki.toml",
 ];
 

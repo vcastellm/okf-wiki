@@ -62,7 +62,9 @@ the command's current working directory.
 
 An optional `okf-wiki.toml` at the bundle root configures folder names. Absent config uses the
 default layout (`raw/`, `sources/`, `notes/`, `entities/`, `concepts/`). A partial config
-overrides only the keys it declares. See
+overrides only the keys it declares. The optional `ignored` list (default `[]`) names additional
+root-level folders whose entire subtrees are excluded from load, search, lint, index, and status
+page counts; ignored folders are not created by `init` and are not ingest destinations. See
 [`skills/okf-wiki/references/okf-spec.md`](skills/okf-wiki/references/okf-spec.md) for the full
 `[folders]` schema.
 

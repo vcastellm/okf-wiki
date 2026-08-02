@@ -114,20 +114,35 @@ fn status_bundle_dot_uses_command_current_dir() -> anyhow::Result<()> {
 }
 
 #[test]
-fn status_json_counts_visible_direct_files_across_configured_raw_roots() -> anyhow::Result<()> {
-    // Given: a bundle with multiple configured raw roots containing visible, hidden, and nested files.
+fn status_json_counts_raw_files_and_excludes_ignored_pages() -> anyhow::Result<()> {
+    // Given: a bundle with raw roots, ignored roots, and one managed page.
     let bundle = tempdir()?;
     std::fs::write(
         bundle.path().join("okf-wiki.toml"),
-        "[folders]\nraw = [\"incoming\", \"research\"]\n",
+        "[folders]\nraw = [\"incoming\", \"research\"]\nignored = [\"scratch\", \"vendor\"]\n",
     )?;
     std::fs::create_dir_all(bundle.path().join("incoming/nested"))?;
     std::fs::create_dir_all(bundle.path().join("research"))?;
+    std::fs::create_dir_all(bundle.path().join("scratch/nested/deeper"))?;
+    std::fs::create_dir_all(bundle.path().join("vendor/package/docs"))?;
+    std::fs::create_dir_all(bundle.path().join("notes"))?;
     std::fs::write(bundle.path().join("incoming/a.md"), "a")?;
     std::fs::write(bundle.path().join("incoming/.hidden.md"), "hidden")?;
     std::fs::write(bundle.path().join("incoming/nested/deep.md"), "deep")?;
     std::fs::write(bundle.path().join("research/b.md"), "b")?;
     std::fs::write(bundle.path().join("research/c.txt"), "c")?;
+    std::fs::write(
+        bundle.path().join("scratch/nested/deeper/draft.md"),
+        "---\ntype: Note\ntitle: Scratch Draft\n---\n\nIgnored.\n",
+    )?;
+    std::fs::write(
+        bundle.path().join("vendor/package/docs/readme.md"),
+        "---\ntype: Note\ntitle: Vendor Readme\n---\n\nIgnored.\n",
+    )?;
+    std::fs::write(
+        bundle.path().join("notes/page.md"),
+        "---\ntype: Note\ntitle: Page\n---\n\nVisible.\n",
+    )?;
 
     // When: status is requested as machine-readable JSON.
     let executable = env!("CARGO_BIN_EXE_okf-wiki");
@@ -140,10 +155,11 @@ fn status_json_counts_visible_direct_files_across_configured_raw_roots() -> anyh
         ])
         .output()?;
 
-    // Then: the raw count sums only visible direct files across configured roots.
+    // Then: the raw count is raw-root-only and page count excludes ignored descendants.
     assert!(output.status.success());
     let body: Value = serde_json::from_slice(&output.stdout)?;
     assert_eq!(body["raw_files"], 3);
+    assert_eq!(body["page_count"], 1);
     Ok(())
 }
 

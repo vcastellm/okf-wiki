@@ -219,9 +219,10 @@ sources = "sources"
 notes = "notes"
 entities = "entities"
 concepts = "concepts"
+ignored = ["scratch", "vendor"]
 ```
 
-Folder values are root-relative names and must be unique. `raw` is an ordered, non-empty list. All raw entries are excluded from page discovery. The first raw entry is the ingest destination. `okf-wiki status --bundle .` counts direct visible files in each raw folder separately. See [references/okf-spec.md](references/okf-spec.md) for the full schema and defaults.
+Folder values are root-level names and must be unique. `raw` is an ordered, non-empty list. All raw entries are excluded from page discovery. The first raw entry is the ingest destination. `ignored` is an optional list (default `[]`) of additional root-level folders to exclude from load, search, lint, index, and status page counts. Ignored folders are not created by `init` and are not ingest destinations. `okf-wiki status --bundle .` counts direct visible files in each raw folder separately. See [references/okf-spec.md](references/okf-spec.md) for the full schema and defaults.
 
 ## Format essentials
 

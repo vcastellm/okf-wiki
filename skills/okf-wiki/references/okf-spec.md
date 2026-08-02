@@ -171,6 +171,7 @@ sources = "sources"
 notes = "notes"
 entities = "entities"
 concepts = "concepts"
+ignored = ["scratch", "vendor"]
 ```
 
 All keys are optional. Absent keys inherit their defaults (the names shown above). A partial config overrides only the keys it declares; everything else stays at the default.
@@ -178,7 +179,7 @@ All keys are optional. Absent keys inherit their defaults (the names shown above
 ### Folder validation constraints
 
 - Values are **single root-level folder names** (no path separators, no leading dots, no nesting).
-- All folder names across the entire config — including every entry in `raw` — must be **unique case-insensitively**.
+- All folder names across the entire config — including every entry in `raw` and every entry in `ignored` — must be **unique case-insensitively**.
 - No folder name may collide with a reserved filename (`index.md`, `log.md`, `okf-wiki.toml`).
 
 ### `raw` semantics
@@ -191,6 +192,23 @@ All keys are optional. Absent keys inherit their defaults (the names shown above
 
 With the default config, `raw = ["raw"]`, so `raw/` is both the only raw folder and the ingest target. Adding a second entry like `"research"` makes both folders excluded from the wiki while keeping `raw/` as the ingest target.
 
+### `ignored` semantics
+
+`ignored` is an optional list of root-level folder names to exclude from all wiki operations. It defaults to `[]` (nothing extra ignored). `okf-wiki init` does not create these directories; they are expected to exist already (e.g. `scratch/`, `vendor/`).
+
+Effects of listing a folder in `ignored`:
+
+- The entire subtree is pruned from **page discovery** (load/index/lint/search).
+- `okf-wiki status --bundle .` does not count files in ignored folders.
+- `okf-wiki lint --bundle .` skips ignored folders entirely.
+- `okf-wiki search <query> --bundle .` never returns results from ignored folders.
+
+Non-effects:
+
+- `ignored` entries are **not** ingest destinations. Use `raw` entries for that.
+- Files inside an ignored folder are never counted as raw files.
+- Raw ingest (`okf-wiki ingest`) is unaffected — it writes to the first `raw` entry only.
+
 ### Managed folder defaults
 
 | Key | Default |
@@ -200,6 +218,7 @@ With the default config, `raw = ["raw"]`, so `raw/` is both the only raw folder 
 | `notes` | `"notes"` |
 | `entities` | `"entities"` |
 | `concepts` | `"concepts"` |
+| `ignored` | `[]` |
 
 Absent `okf-wiki.toml` is equivalent to a config with all defaults. The `--bundle .` command workflow is unchanged regardless of folder configuration.
 

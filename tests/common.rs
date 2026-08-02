@@ -98,6 +98,49 @@ fn excludes_configured_raw_folders_from_loading_and_search() -> anyhow::Result<(
 }
 
 #[test]
+fn excludes_configured_ignored_roots_from_loading_and_search() -> anyhow::Result<()> {
+    // Given: configured ignored roots with nested markdown descendants and one managed page.
+    let bundle = tempdir()?;
+    fs::write(
+        bundle.path().join("okf-wiki.toml"),
+        "[folders]\nignored = [\"scratch\", \"vendor\"]\n",
+    )?;
+    fs::create_dir_all(bundle.path().join("scratch/nested/deeper"))?;
+    fs::create_dir_all(bundle.path().join("vendor/package/docs"))?;
+    fs::create_dir_all(bundle.path().join("notes"))?;
+    fs::write(
+        bundle.path().join("scratch/nested/deeper/draft.md"),
+        "---\ntype: Note\ntitle: Scratch Draft\n---\n\nUniqueScratchIgnored\n",
+    )?;
+    fs::write(
+        bundle.path().join("vendor/package/docs/readme.md"),
+        "---\ntype: Note\ntitle: Vendor Readme\n---\n\nUniqueVendorIgnored\n",
+    )?;
+    fs::write(
+        bundle.path().join("notes/kept.md"),
+        "---\ntype: Note\ntitle: Kept\n---\n\nUniqueManagedKept\n",
+    )?;
+
+    // When: the shared read-side bundle and search APIs inspect the bundle.
+    let concepts = load_bundle(bundle.path())?;
+    let ignored_results = search_bundle(
+        bundle.path(),
+        "UniqueScratchIgnored UniqueVendorIgnored",
+        10,
+        false,
+    )?;
+    let managed_results = search_bundle(bundle.path(), "UniqueManagedKept", 10, false)?;
+
+    // Then: ignored root subtrees are absent while managed markdown remains searchable.
+    assert_eq!(concepts.len(), 1);
+    assert_eq!(concepts[0].rel, "/notes/kept.md");
+    assert!(ignored_results.is_empty());
+    assert_eq!(managed_results.len(), 1);
+    assert_eq!(managed_results[0].rel, "/notes/kept.md");
+    Ok(())
+}
+
+#[test]
 fn ranks_title_matches_above_body_only_matches() -> anyhow::Result<()> {
     // Given: a pair of searchable pages with different field matches.
     let bundle = tempdir()?;
