@@ -14,10 +14,16 @@ Install the skill for a supported coding agent:
 npx skills add vcastellm/okf-wiki
 ```
 
-Run the CLI without a permanent installation from the directory that should become the bundle root:
+Install the latest published CLI into the current directory's `.local` prefix:
 
 ```bash
-npx okf-wiki init .
+npm install --global okf-wiki@latest --prefix "$PWD/.local"
+```
+
+Alternatively, run the CLI without a permanent installation:
+
+```bash
+npx okf-wiki@latest init .
 ```
 
 Until a crates.io release is published, install the CLI directly from the repository:
